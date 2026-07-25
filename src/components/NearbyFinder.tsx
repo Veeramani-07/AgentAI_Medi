@@ -54,6 +54,23 @@ const COMMON_TOWNS = [
   "Barmer", "Khurja", "Nabha", "Tirupati",
 ];
 
+function getSuggestions(input: string, pharmacies: Pharmacy[]): string[] {
+  if (!input.trim()) return [];
+  const q = input.toLowerCase();
+  const seen = new Set<string>();
+  const results: string[] = [];
+  for (const p of pharmacies) {
+    for (const val of [p.city, p.district, p.state, p.pincode]) {
+      if (val && val.toLowerCase().includes(q) && !seen.has(val)) {
+        seen.add(val);
+        results.push(val);
+      }
+    }
+    if (results.length >= 8) break;
+  }
+  return results;
+}
+
 export function NearbyFinder({ userLat, userLng, onUseLocation, hasLocation, onAddEquipment }: Props) {
   const [allPharmacies, setAllPharmacies] = useState<Pharmacy[]>([]);
   const [equipmentByPharmacy, setEquipmentByPharmacy] = useState<Record<string, PharmacyEquipment[]>>({});
@@ -61,13 +78,16 @@ export function NearbyFinder({ userLat, userLng, onUseLocation, hasLocation, onA
 
   const [placeInput, setPlaceInput] = useState("");
   const [searchedPlace, setSearchedPlace] = useState<string>("");
-  const [maxDistance, setMaxDistance] = useState<number>(100);
+  const [maxDistance, setMaxDistance] = useState<number>(10);
   const [typeFilter, setTypeFilter] = useState<PharmacyType | "all">("all");
   const [only24x7, setOnly24x7] = useState(false);
   const [onlyWithEquipment, setOnlyWithEquipment] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [noMatch, setNoMatch] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const suggestions = useMemo(() => getSuggestions(placeInput, allPharmacies), [placeInput, allPharmacies]);
 
   useEffect(() => {
     (async () => {
@@ -100,15 +120,23 @@ export function NearbyFinder({ userLat, userLng, onUseLocation, hasLocation, onA
       return { ...p, distance_km, equipment: equipmentByPharmacy[p.id] || [] };
     });
 
-    // Filter by typed place if we don't have GPS, OR if a place was explicitly searched
-    if (place && (!point || searchedPlace)) {
-      list = list.filter(
+    // Strict place filter: exact city match first, then district/state
+    if (place) {
+      const exact = list.filter((p) => p.city.toLowerCase() === place);
+      const partial = list.filter(
         (p) =>
-          p.city.toLowerCase().includes(place) ||
-          p.state.toLowerCase().includes(place) ||
-          (p.district?.toLowerCase().includes(place) ?? false) ||
-          (p.pincode?.includes(place) ?? false)
+          p.city.toLowerCase() !== place &&
+          (p.city.toLowerCase().includes(place) ||
+            (p.district?.toLowerCase().includes(place) ?? false) ||
+            (p.pincode?.includes(place) ?? false))
       );
+      list = [...exact, ...partial];
+      // Only fall back to state if nothing found
+      if (list.length === 0) {
+        list = allPharmacies
+          .map((p) => ({ ...p, distance_km: point ? haversineKm(point.lat, point.lng, p.lat, p.lng) : null, equipment: equipmentByPharmacy[p.id] || [] }))
+          .filter((p) => p.state.toLowerCase().includes(place));
+      }
     }
 
     // GPS-based proximity filter
@@ -169,11 +197,27 @@ export function NearbyFinder({ userLat, userLng, onUseLocation, hasLocation, onA
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
             <input
               value={placeInput}
-              onChange={(e) => setPlaceInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
-              placeholder="Enter your village, town, city or pincode… e.g. Khurja, Barmer, 400050"
+              onChange={(e) => { setPlaceInput(e.target.value); setShowSuggestions(true); }}
+              onKeyDown={(e) => { if (e.key === "Enter") { handleSearch(); setShowSuggestions(false); } }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              placeholder="Type village, town, city or pincode… e.g. Khurja, Barmer, 400050"
               className="input pl-10"
             />
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-ink-200 rounded-xl shadow-lg overflow-hidden">
+                {suggestions.map((s) => (
+                  <button
+                    key={s}
+                    onMouseDown={() => { setPlaceInput(s); setSearchedPlace(s); setShowSuggestions(false); }}
+                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-primary-50 hover:text-primary-700 flex items-center gap-2 border-b border-ink-100 last:border-0"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-ink-400 shrink-0" />
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <button onClick={handleSearch} className="btn-primary shrink-0">
             <Search className="w-4 h-4" /> Search
@@ -225,10 +269,11 @@ export function NearbyFinder({ userLat, userLng, onUseLocation, hasLocation, onA
                 onChange={(e) => setMaxDistance(Number(e.target.value))}
                 className="text-sm rounded-lg border border-ink-200 px-2.5 py-1.5 bg-white focus:border-primary-500 outline-none cursor-pointer"
               >
+                <option value={5}>5 km</option>
+                <option value={10}>10 km</option>
                 <option value={25}>25 km</option>
                 <option value={50}>50 km</option>
                 <option value={100}>100 km</option>
-                <option value={250}>250 km</option>
                 <option value={9999}>Any distance</option>
               </select>
             </div>
@@ -306,14 +351,15 @@ function NearbyPharmacyCard({
         <div className="flex items-start gap-4">
           {/* Rank badge */}
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-bold ${
-            rank <= 2 ? "bg-primary-100 text-primary-700" : "bg-ink-100 text-ink-500"
+            rank === 1 ? "bg-primary-500 text-white" : rank === 2 ? "bg-primary-100 text-primary-700" : "bg-ink-100 text-ink-500"
           }`}>
-            {rank}
+            {rank === 1 ? <Navigation className="w-5 h-5" /> : rank}
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h4 className="font-bold text-ink-900 truncate">{pharmacy.name}</h4>
+              {rank === 1 && <span className="chip-success text-[10px] py-0.5">⚡ Nearest</span>}
               <PharmacyTypeBadge type={pharmacy.pharmacy_type} />
               <Open24x7Badge is24x7={pharmacy.is_24x7} />
               <VerifiedBadge verified={pharmacy.verified} />
