@@ -3,8 +3,9 @@
   "short_name": "MediFinder",
   "description": "AI-powered medicine and pharmacy finder across India",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#f0fdf4",
+  "background_color": "#ffffff",
   "theme_color": "#16a34a",
   "orientation": "portrait",
   "icons": [
