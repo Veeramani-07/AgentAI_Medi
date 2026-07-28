@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
 import { Search, ChevronDown, MapPin, Navigation, Plus, Building2 } from "lucide-react";
-import { usePharmacies, useEquipment } from "@/lib/hooks";
+import { usePharmacies } from "@/lib/hooks";
 import { supabase } from "@/lib/supabase";
 import { PharmacyDirectoryCard } from "./PharmacyCard";
-import { PharmacyTypeBadge } from "./Badges";
 import { LoadingSpinner, EmptyState } from "./Badges";
 import { INDIAN_STATES } from "@/lib/utils";
 import type { PharmacyType } from "@/lib/types";

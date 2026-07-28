@@ -95,7 +95,7 @@ function MatchedItemRow({ item }: { item: MatchedItem }) {
         {item.kind === "medicine" ? (
           <StockBadge inStock={item.in_stock} quantity={item.quantity} />
         ) : (
-          <EquipmentStatusBadge status={(item.status as any) || "available"} />
+          <EquipmentStatusBadge status={(item.status as import("@/lib/types").EquipmentStatus) || "available"} />
         )}
         {item.price != null && <span className="text-sm font-bold text-ink-700">{formatPrice(item.price)}</span>}
       </div>

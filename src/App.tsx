@@ -13,11 +13,13 @@ import { NearbyFinder } from "@/components/NearbyFinder";
 import { AddRequestModal } from "@/components/AddRequestModal";
 import { AddPharmacyModal } from "@/components/AddPharmacyModal";
 import { AddEquipmentModal } from "@/components/AddEquipmentModal";
+import { AgentHub } from "@/components/agents/AgentHub";
+import { TOP_INDIA_HOSPITALS, TOP_INDIA_EMERGENCY_REQUESTS } from "@/lib/indiaHospitalsData";
 import { supabase } from "@/lib/supabase";
 import type { Pharmacy, EmergencyRequest, PharmacyResult } from "@/lib/types";
 import { MapPin, AlertCircle } from "lucide-react";
 
-type Tab = "home" | "nearby" | "assistant" | "medicines" | "equipment" | "requests" | "pharmacies";
+type Tab = "home" | "agents" | "nearby" | "assistant" | "medicines" | "equipment" | "requests" | "pharmacies";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -29,7 +31,6 @@ export default function App() {
   const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
   const [requests, setRequests] = useState<EmergencyRequest[]>([]);
   const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
-  const [focusedPharmacy, setFocusedPharmacy] = useState<PharmacyResult | null>(null);
   const [showAddRequest, setShowAddRequest] = useState(false);
   const [showAddPharmacy, setShowAddPharmacy] = useState(false);
   const [showAddEquipment, setShowAddEquipment] = useState(false);
@@ -49,8 +50,25 @@ export default function App() {
         supabase.from("pharmacies").select("*").order("rating", { ascending: false }),
         supabase.from("emergency_requests").select("*").order("created_at", { ascending: false }),
       ]);
-      setPharmacies(pharma || []);
-      setRequests(reqs || []);
+
+      const dbPharma = pharma || [];
+      const dbReqs = reqs || [];
+
+      // Combine DB items with Top India Hospitals catalog for complete real-time coverage
+      const existingIds = new Set(dbPharma.map((p) => p.id));
+      const mergedPharma: Pharmacy[] = [
+        ...dbPharma,
+        ...TOP_INDIA_HOSPITALS.filter((h) => !existingIds.has(h.id)),
+      ];
+
+      const existingReqIds = new Set(dbReqs.map((r) => r.id));
+      const mergedReqs: EmergencyRequest[] = [
+        ...dbReqs,
+        ...TOP_INDIA_EMERGENCY_REQUESTS.filter((r) => !existingReqIds.has(r.id)),
+      ];
+
+      setPharmacies(mergedPharma);
+      setRequests(mergedReqs);
     })();
   }, []);
 
@@ -97,7 +115,9 @@ export default function App() {
   }
 
   function handlePharmacyFocus(p: PharmacyResult) {
-    setFocusedPharmacy(p);
+    if (p) {
+      setSelectedMapId(p.id);
+    }
     setTab("nearby");
   }
 
@@ -131,9 +151,16 @@ export default function App() {
             onAskAssistant={() => setTab("assistant")}
             onViewRequests={() => setTab("requests")}
             onNearby={() => setTab("nearby")}
+            onAgents={() => setTab("agents")}
             onSelectMapPoint={handleMapSelect}
             selectedId={selectedMapId}
           />
+        )}
+
+        {tab === "agents" && (
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <AgentHub />
+          </section>
         )}
 
         {tab === "nearby" && (

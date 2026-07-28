@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Search, MapPin, Navigation, Crosshair, ChevronDown, ChevronRight,
+  Search, MapPin, Navigation, Crosshair, ChevronDown,
   Phone, Star, Clock, Truck, Wind, Droplet, BedDouble, Activity, Stethoscope,
   HeartPulse, Plus, Filter, Building2, Loader2, AlertCircle, ShieldCheck,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { TOP_INDIA_HOSPITALS } from "@/lib/indiaHospitalsData";
 import type { Pharmacy, PharmacyEquipment, PharmacyType } from "@/lib/types";
 import { INDIAN_STATES, formatDistance, haversineKm } from "@/lib/utils";
 import {
@@ -83,7 +84,6 @@ export function NearbyFinder({ userLat, userLng, onUseLocation, hasLocation, onA
   const [only24x7, setOnly24x7] = useState(false);
   const [onlyWithEquipment, setOnlyWithEquipment] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [searching, setSearching] = useState(false);
   const [noMatch, setNoMatch] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -96,11 +96,33 @@ export function NearbyFinder({ userLat, userLng, onUseLocation, hasLocation, onA
         supabase.from("pharmacies").select("*").order("rating", { ascending: false }),
         supabase.from("pharmacy_equipment").select("*"),
       ]);
-      setAllPharmacies(pharma || []);
+
+      const dbPharma = pharma || [];
+      const existingIds = new Set(dbPharma.map((p) => p.id));
+
+      const mergedPharma: Pharmacy[] = [
+        ...dbPharma,
+        ...TOP_INDIA_HOSPITALS.filter((h) => !existingIds.has(h.id)),
+      ];
+
+      setAllPharmacies(mergedPharma);
+
       const eqMap: Record<string, PharmacyEquipment[]> = {};
       for (const e of eqs || []) {
         (eqMap[e.pharmacy_id] ||= []).push(e);
       }
+
+      // Add top hospital equipment list
+      for (const h of TOP_INDIA_HOSPITALS) {
+        if (!eqMap[h.id]) {
+          eqMap[h.id] = h.equipmentList.map((eq, idx) => ({
+            ...eq,
+            id: `eq-${h.id}-${idx}`,
+            pharmacy_id: h.id,
+          }));
+        }
+      }
+
       setEquipmentByPharmacy(eqMap);
       setLoading(false);
     })();
@@ -162,9 +184,7 @@ export function NearbyFinder({ userLat, userLng, onUseLocation, hasLocation, onA
   }, [allPharmacies, equipmentByPharmacy, userPoint, searchedPlace, maxDistance, typeFilter, only24x7, onlyWithEquipment, loading]);
 
   function handleSearch() {
-    setSearching(true);
     setSearchedPlace(placeInput);
-    setTimeout(() => setSearching(false), 300);
   }
 
   function useMyLocation() {

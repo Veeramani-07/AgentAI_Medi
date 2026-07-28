@@ -8,6 +8,7 @@ import type {
   Medicine,
   EquipmentType,
 } from "./types";
+import { TOP_INDIA_HOSPITALS, TOP_INDIA_EMERGENCY_REQUESTS } from "./indiaHospitalsData";
 import { haversineKm } from "./utils";
 
 export interface PharmacyWithDistance extends Pharmacy {
@@ -28,8 +29,16 @@ export function usePharmacies(userLat: number | null, userLng: number | null) {
         .select("*")
         .order("rating", { ascending: false });
       if (!active) return;
+
+      const dbPharmacies = data || [];
+      const existingIds = new Set(dbPharmacies.map((p) => p.id));
+      const merged = [
+        ...dbPharmacies,
+        ...TOP_INDIA_HOSPITALS.filter((h) => !existingIds.has(h.id)),
+      ];
+
       if (error) setError(error.message);
-      else setPharmacies(data || []);
+      setPharmacies(merged);
       setLoading(false);
     })();
     return () => { active = false; };
@@ -93,8 +102,30 @@ export function useEquipment(equipmentType?: EquipmentType | "all") {
       let q = supabase.from("pharmacy_equipment").select("*, pharmacies(*)");
       if (equipmentType && equipmentType !== "all") q = q.eq("equipment_type", equipmentType);
       const { data } = await q.order("status", { ascending: true });
+
+      const dbRows = data || [];
+      const existingIds = new Set(dbRows.map((r) => r.id));
+
+      const catalogEquipment: PharmacyEquipment[] = [];
+      for (const h of TOP_INDIA_HOSPITALS) {
+        for (let i = 0; i < h.equipmentList.length; i++) {
+          const item = h.equipmentList[i];
+          if (!equipmentType || equipmentType === "all" || item.equipment_type === equipmentType) {
+            const eqId = `eq-${h.id}-${i}`;
+            if (!existingIds.has(eqId)) {
+              catalogEquipment.push({
+                ...item,
+                id: eqId,
+                pharmacy_id: h.id,
+                pharmacies: h,
+              });
+            }
+          }
+        }
+      }
+
       if (active) {
-        setRows(data || []);
+        setRows([...dbRows, ...catalogEquipment]);
         setLoading(false);
       }
     })();
@@ -114,7 +145,15 @@ export function useRequests() {
       .from("emergency_requests")
       .select("*")
       .order("created_at", { ascending: false });
-    setRequests(data || []);
+
+    const dbReqs = data || [];
+    const existingIds = new Set(dbReqs.map((r) => r.id));
+    const merged = [
+      ...dbReqs,
+      ...TOP_INDIA_EMERGENCY_REQUESTS.filter((r) => !existingIds.has(r.id)),
+    ];
+
+    setRequests(merged);
     setLoading(false);
   }, []);
 
