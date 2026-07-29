@@ -1,45 +1,59 @@
-import { useState } from "react";
-import { ShieldCheck, IndianRupee, FileText, CheckCircle2, Award, Percent, AlertCircle, ArrowRight, Sparkles, Building2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import {
+  ShieldCheck, IndianRupee, FileText, CheckCircle2,
+  Award, Percent, ArrowRight, Sparkles, Search,
+} from "lucide-react";
+import { SUBSIDY_CATALOG, type SubsidyCatalogEntry } from "@/lib/agentKnowledgeBase";
+import { INDIAN_STATES } from "@/lib/utils";
 
-interface SubsidyAudit {
-  medicineName: string;
-  mrp: number;
-  janAushadhiPrice: number;
-  ayushmanCovered: boolean;
-  stateScheme: string;
-  copayPercent: number;
-}
-
-const SAMPLE_DRUGS: SubsidyAudit[] = [
-  { medicineName: "Insulin Glargine 100 IU/ml", mrp: 780, janAushadhiPrice: 220, ayushmanCovered: true, stateScheme: "Chief Minister Comprehensive Health Insurance Scheme", copayPercent: 0 },
-  { medicineName: "Atorvastatin 10mg (30 Tablets)", mrp: 290, janAushadhiPrice: 38, ayushmanCovered: true, stateScheme: "PMBJP Jan Aushadhi Generic Subsidy", copayPercent: 0 },
-  { medicineName: "Amoxicillin + Clavulanic Acid 625mg", mrp: 215, janAushadhiPrice: 54, ayushmanCovered: true, stateScheme: "PMBJP Jan Aushadhi Generic Subsidy", copayPercent: 10 },
-  { medicineName: "Metformin 500mg SR (60 Tablets)", mrp: 160, janAushadhiPrice: 24, ayushmanCovered: true, stateScheme: "PMBJP Jan Aushadhi Generic Subsidy", copayPercent: 0 },
-];
+const STATE_SCHEME_MAP: Record<string, string> = {
+  "Tamil Nadu":       "Chief Minister Comprehensive Health Insurance (CMCHIS)",
+  "Maharashtra":      "Mahatma Jyotirao Phule Jan Arogya Yojana (MPJAY)",
+  "Karnataka":        "Arogya Sanjeevini Yojana",
+  "Delhi":            "Farishtay Scheme / DGEHS",
+  "Uttar Pradesh":    "Mukhyamantri Jan Arogya Yojana (UP-PMJAY)",
+  "West Bengal":      "Swasthya Sathi Scheme",
+  "Andhra Pradesh":   "YSR Aarogyasri Health Scheme",
+  "Rajasthan":        "Mukhyamantri Chiranjeevi Swasthya Bima Yojana",
+  "Madhya Pradesh":   "Mukhyamantri Swasthya Seva Guarantee Yojana",
+  "Bihar":            "Bihar State Health Society PMJAY",
+  "Gujarat":          "MA Yojana (Mukhyamantri Amrutum)",
+  "Punjab":           "Sarbat Sehat Bima Yojana",
+  "Telangana":        "Telangana State PMJAY / Aarogyasri",
+  "Kerala":           "Karunya Arogya Suraksha Padhathi (KASP)",
+};
 
 export function InsuranceSubsidyAgent() {
-  const [selectedDrugIndex, setSelectedDrugIndex] = useState(0);
+  const [searchQuery, setSearchQuery]       = useState("Insulin");
   const [hasAyushmanCard, setHasAyushmanCard] = useState(true);
-  const [patientState, setPatientState] = useState("Tamil Nadu");
-  const [analyzing, setAnalyzing] = useState(false);
-  const [evaluated, setEvaluated] = useState(true);
+  const [patientState, setPatientState]     = useState("Tamil Nadu");
+  const [quantity, setQuantity]             = useState(1);
 
-  const currentDrug = SAMPLE_DRUGS[selectedDrugIndex];
-  const totalSavings = currentDrug.mrp - currentDrug.janAushadhiPrice;
-  const savingsPercent = Math.round((totalSavings / currentDrug.mrp) * 100);
+  // ── Dynamically match the subsidy catalog to user's medicine search ──
+  const matchedEntry: SubsidyCatalogEntry | null = useMemo(() => {
+    const q = searchQuery.trim();
+    if (!q) return null;
+    return SUBSIDY_CATALOG.find(e => e.keywords.test(q)) ?? null;
+  }, [searchQuery]);
 
-  function handleCalculate() {
-    setAnalyzing(true);
-    setTimeout(() => {
-      setAnalyzing(false);
-      setEvaluated(true);
-    }, 600);
-  }
+  const allMatches: SubsidyCatalogEntry[] = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return SUBSIDY_CATALOG;
+    return SUBSIDY_CATALOG.filter(e => e.keywords.test(q) || e.medicineName.toLowerCase().includes(q));
+  }, [searchQuery]);
+
+  const stateScheme = STATE_SCHEME_MAP[patientState] ?? "State Health Insurance Scheme";
+  const brandTotal  = matchedEntry ? matchedEntry.mrp * quantity : 0;
+  const jaTotal     = matchedEntry ? matchedEntry.janAushadhiPrice * quantity : 0;
+  const savings     = brandTotal - jaTotal;
+  const savingsPct  = brandTotal > 0 ? Math.round((savings / brandTotal) * 100) : 0;
+  const outOfPocket = hasAyushmanCard && matchedEntry?.ayushmanCovered ? 0 : jaTotal;
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="rounded-2xl p-6 text-white relative overflow-hidden shadow-xl" style={{ background: "linear-gradient(135deg, #065f46 0%, #047857 50%, #0d9488 100%)" }}>
+      {/* Header */}
+      <div className="rounded-2xl p-6 text-white relative overflow-hidden shadow-xl"
+        style={{ background: "linear-gradient(135deg, #065f46 0%, #047857 50%, #0d9488 100%)" }}>
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center shrink-0">
             <ShieldCheck className="w-6 h-6 text-emerald-200" />
@@ -48,129 +62,188 @@ export function InsuranceSubsidyAgent() {
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-[11px] font-extrabold uppercase tracking-widest text-emerald-200 mb-1">
               <Award className="w-3 h-3 text-amber-300" /> Agent 8 · AI Government Subsidy & Insurance Advisor
             </div>
-            <h2 className="text-2xl font-black">Ayushman Bharat & PMBJP Generic Subsidy Advisor</h2>
-            <p className="text-xs text-emerald-100 font-medium">Maximizes PMJAY card claim eligibility, calculates Jan Aushadhi generic price savings (up to 85%), and checks state health scheme copays.</p>
+            <h2 className="text-2xl font-black">Ayushman Bharat & PMBJP Subsidy Advisor</h2>
+            <p className="text-xs text-emerald-100 font-medium">
+              Type any medicine → AI instantly calculates PMJAY coverage, Jan Aushadhi savings, and out-of-pocket cost
+            </p>
           </div>
         </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Input Parameters */}
+        {/* Input Panel */}
         <div className="card p-5 space-y-4">
           <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-            <IndianRupee className="w-4 h-4 text-emerald-600" /> Patient Eligibility & Drug Selection
+            <IndianRupee className="w-4 h-4 text-emerald-600" /> Patient Eligibility & Drug Input
           </h3>
 
+          {/* Medicine Search */}
           <div>
-            <label className="text-xs font-bold text-slate-600">Select Prescribed Medicine</label>
-            <select
-              value={selectedDrugIndex}
-              onChange={(e) => setSelectedDrugIndex(Number(e.target.value))}
-              className="input text-sm mt-1 font-semibold"
-            >
-              {SAMPLE_DRUGS.map((d, i) => (
-                <option key={i} value={i}>
-                  {d.medicineName} (Brand MRP: ₹{d.mrp})
-                </option>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Search Prescribed Medicine</label>
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Type medicine name (e.g. Insulin, Metformin, Atorvastatin, Pantoprazole, Cancer drug…)"
+                className="input pl-9 text-sm font-semibold"
+              />
+            </div>
+            {/* Quick medicine chips */}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {["Insulin", "Metformin", "Atorvastatin", "Amoxicillin", "Pantoprazole", "Cancer"].map(drug => (
+                <button
+                  key={drug}
+                  onClick={() => setSearchQuery(drug)}
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-bold border transition-all ${
+                    searchQuery.toLowerCase() === drug.toLowerCase()
+                      ? "bg-emerald-600 text-white border-emerald-600"
+                      : "bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100"
+                  }`}
+                >
+                  {drug}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
+          {/* Quantity */}
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Quantity / Strips / Units</label>
+            <input
+              type="number"
+              min={1}
+              max={120}
+              value={quantity}
+              onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+              className="input text-sm font-semibold w-28"
+            />
+          </div>
+
+          {/* PMJAY Card & State */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-bold text-slate-600">Ayushman Bharat (PMJAY) Card?</label>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Ayushman Bharat (PMJAY) Card?</label>
               <select
                 value={hasAyushmanCard ? "YES" : "NO"}
-                onChange={(e) => setHasAyushmanCard(e.target.value === "YES")}
-                className="input text-sm mt-1 font-bold text-emerald-800 bg-emerald-50 border-emerald-200"
+                onChange={e => setHasAyushmanCard(e.target.value === "YES")}
+                className="input text-sm font-bold text-emerald-800 bg-emerald-50 border-emerald-200"
               >
                 <option value="YES">✅ Active PMJAY Gold Card</option>
                 <option value="NO">❌ No PMJAY Card</option>
               </select>
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-600">Beneficiary Domicile State</label>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Beneficiary State</label>
               <select
                 value={patientState}
-                onChange={(e) => setPatientState(e.target.value)}
-                className="input text-sm mt-1"
+                onChange={e => setPatientState(e.target.value)}
+                className="input text-sm"
               >
-                <option value="Tamil Nadu">Tamil Nadu (CMCHIS)</option>
-                <option value="Maharashtra">Maharashtra (MPJAY)</option>
-                <option value="Karnataka">Karnataka (Arogya Sanjeevini)</option>
-                <option value="Delhi">Delhi (Farishtay / DGEHS)</option>
-                <option value="Uttar Pradesh">Uttar Pradesh (PMJAY UP)</option>
+                {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           </div>
 
-          <button
-            onClick={handleCalculate}
-            disabled={analyzing}
-            className="btn-primary w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4 text-amber-300" /> Calculate Max Subsidy & Jan Aushadhi Savings
-          </button>
+          {/* Catalog matches */}
+          {allMatches.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 mb-1">All matching drugs in catalog:</p>
+              <div className="space-y-1">
+                {allMatches.map((e, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSearchQuery(e.medicineName.split(" ")[0])}
+                    className="w-full text-left px-3 py-2 rounded-xl border text-xs font-bold bg-white border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 transition-all flex items-center justify-between"
+                  >
+                    <span>{e.medicineName}</span>
+                    <span className="text-emerald-700">MRP ₹{e.mrp}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* AI Agent Savings Output */}
+        {/* Output Panel */}
         <div className="card p-5 border-2 border-emerald-200 bg-emerald-50/30 space-y-4">
           <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 border-b pb-2">
             <Percent className="w-4 h-4 text-emerald-600" /> AI Subsidy & Price Breakdown
           </h3>
 
-          {analyzing ? (
-            <div className="py-12 text-center text-xs text-slate-600 space-y-2">
-              <div className="w-6 h-6 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="font-bold">Analyzing Jan Aushadhi Kendra (PMBJP) Price Catalogs...</p>
+          {!matchedEntry ? (
+            <div className="py-12 text-center text-slate-500 text-sm font-semibold">
+              <Sparkles className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+              Type a medicine name above to see instant subsidy calculation →
             </div>
-          ) : evaluated ? (
+          ) : (
             <div className="space-y-3 text-xs animate-fade-in">
-              {/* Cost Comparison Cards */}
+              {/* Medicine name */}
+              <div className="p-3 rounded-xl bg-white border border-slate-200">
+                <div className="font-black text-slate-900 text-sm">{matchedEntry.medicineName}</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">Quantity: {quantity} unit{quantity !== 1 ? "s" : ""}</div>
+              </div>
+
+              {/* Price comparison */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-xl bg-white border border-slate-200">
-                  <div className="text-[10px] font-bold text-slate-500 uppercase">Commercial Brand MRP</div>
-                  <div className="text-xl font-black text-rose-700 mt-1">₹{currentDrug.mrp}</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">Private Retail Chemist</div>
+                  <div className="text-[10px] font-bold text-slate-500 uppercase">Brand MRP (Total)</div>
+                  <div className="text-2xl font-black text-rose-700 mt-1">₹{brandTotal.toLocaleString("en-IN")}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">@ ₹{matchedEntry.mrp} per unit</div>
                 </div>
                 <div className="p-3 rounded-xl bg-emerald-600 text-white shadow-md">
-                  <div className="text-[10px] font-bold text-emerald-200 uppercase">PMBJP Jan Aushadhi Price</div>
-                  <div className="text-xl font-black mt-1">₹{currentDrug.janAushadhiPrice}</div>
-                  <div className="text-[10px] text-emerald-100 mt-0.5">Save {savingsPercent}% Instantly</div>
+                  <div className="text-[10px] font-bold text-emerald-200 uppercase">Jan Aushadhi Price (Total)</div>
+                  <div className="text-2xl font-black mt-1">₹{jaTotal.toLocaleString("en-IN")}</div>
+                  <div className="text-[10px] text-emerald-100 mt-0.5">Save {savingsPct}% → ₹{savings.toLocaleString("en-IN")}</div>
                 </div>
               </div>
 
-              {/* Ayushman Bharat Coverage Badge */}
+              {/* PMJAY Coverage */}
               <div className="p-3.5 rounded-xl bg-white border border-emerald-200 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-600" /> PMJAY Ayushman Coverage
                   </span>
-                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-extrabold text-[10px]">
-                    {hasAyushmanCard ? "100% Cashless" : "Standard PMBJP Price"}
+                  <span className={`px-2 py-0.5 rounded font-extrabold text-[10px] ${
+                    matchedEntry.ayushmanCovered && hasAyushmanCard
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-slate-100 text-slate-700"
+                  }`}>
+                    {matchedEntry.ayushmanCovered && hasAyushmanCard ? "100% Cashless" : matchedEntry.ayushmanCovered ? "Eligible (No Card)" : "Not Covered"}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-600">
-                  {hasAyushmanCard
-                    ? `Eligible for 100% cashless coverage under ${patientState} ${currentDrug.stateScheme} at empanelled hospital pharmacies.`
-                    : "No PMJAY card registered. You can still purchase at Jan Aushadhi Kendras for full generic discount."}
+                  {hasAyushmanCard && matchedEntry.ayushmanCovered
+                    ? `✅ Eligible for 100% cashless coverage under ${stateScheme} at empanelled hospitals.`
+                    : !matchedEntry.ayushmanCovered
+                    ? "⚠ This drug is not covered under PMJAY outpatient package. Purchase at Jan Aushadhi Kendra for maximum savings."
+                    : "💳 Register a PMJAY card at your nearest Jan Aushadhi Kendra or Common Service Centre to unlock free coverage."}
                 </p>
               </div>
 
-              {/* Out of Pocket Summary */}
+              {/* State Scheme */}
+              <div className="p-3 rounded-xl bg-sky-50 border border-sky-200 text-sky-900 text-[11px]">
+                <strong>State Scheme ({patientState}):</strong> {stateScheme}
+              </div>
+
+              {/* Out of pocket */}
               <div className="p-3 rounded-xl bg-slate-900 text-white flex items-center justify-between">
                 <div>
-                  <div className="text-[10px] text-slate-400 font-bold uppercase">Final Out-Of-Pocket Patient Cost</div>
-                  <div className="text-lg font-black text-emerald-400">
-                    {hasAyushmanCard ? "₹0 (Fully Covered)" : `₹${currentDrug.janAushadhiPrice}`}
+                  <div className="text-[10px] text-slate-400 font-bold uppercase">Final Out-Of-Pocket Cost</div>
+                  <div className={`text-xl font-black ${outOfPocket === 0 ? "text-emerald-400" : "text-amber-300"}`}>
+                    {outOfPocket === 0 ? "₹0 — Fully Covered!" : `₹${outOfPocket.toLocaleString("en-IN")}`}
                   </div>
                 </div>
                 <span className="text-xs font-bold text-amber-300 bg-white/10 px-2.5 py-1 rounded-lg">
-                  Savings: ₹{totalSavings}
+                  Total Savings: ₹{savings.toLocaleString("en-IN")} ({savingsPct}%)
                 </span>
               </div>
+
+              <div className="text-[10px] text-slate-500 leading-relaxed">
+                {matchedEntry.coverageNote}
+              </div>
             </div>
-          ) : null}
+          )}
         </div>
       </div>
     </div>

@@ -1,5 +1,14 @@
 import { useState, useMemo } from "react";
-import { ShieldAlert, Pill, AlertTriangle, CheckCircle2, XCircle, ChevronRight, Plus, Trash2, HeartPulse, Search, Zap } from "lucide-react";
+import {
+  ShieldAlert, Pill, AlertTriangle, CheckCircle2, XCircle, ChevronRight,
+  Plus, Trash2, HeartPulse, Zap, Info,
+} from "lucide-react";
+import {
+  DRUG_INTERACTION_RULES,
+  ALLERGY_RULES,
+  type DrugInteractionRule,
+  type AllergyRule,
+} from "@/lib/agentKnowledgeBase";
 
 interface InteractionResult {
   drug1: string;
@@ -29,6 +38,15 @@ const ALLERGY_STYLES = {
   low:      { bg: "border-sky-300 bg-sky-50/70",      text: "text-sky-900",    label: "LOW" },
 };
 
+const QUICK_DRUG_SETS = [
+  ["Warfarin", "Ibuprofen", "Amoxicillin"],
+  ["Metformin", "Ibuprofen", "Insulin"],
+  ["Atorvastatin", "Azithromycin"],
+  ["Sildenafil", "Nitroglycerine"],
+  ["Pantoprazole", "Clopidogrel"],
+  ["Paracetamol", "Dolo", "Crocin"],
+];
+
 export function DrugInteractionAgent() {
   const [medicines, setMedicines] = useState<string[]>(["Warfarin", "Ibuprofen", "Amoxicillin"]);
   const [allergies, setAllergies] = useState<string[]>(["Penicillin"]);
@@ -36,97 +54,100 @@ export function DrugInteractionAgent() {
   const [newAllergy, setNewAllergy] = useState("");
 
   function addMedicine() {
-    if (newMed.trim() && !medicines.some(m => m.toLowerCase() === newMed.trim().toLowerCase())) {
-      setMedicines([...medicines, newMed.trim()]);
+    const trimmed = newMed.trim();
+    if (trimmed && !medicines.some(m => m.toLowerCase() === trimmed.toLowerCase())) {
+      setMedicines([...medicines, trimmed]);
       setNewMed("");
     }
   }
 
   function addAllergy() {
-    if (newAllergy.trim() && !allergies.some(a => a.toLowerCase() === newAllergy.trim().toLowerCase())) {
-      setAllergies([...allergies, newAllergy.trim()]);
+    const trimmed = newAllergy.trim();
+    if (trimmed && !allergies.some(a => a.toLowerCase() === trimmed.toLowerCase())) {
+      setAllergies([...allergies, trimmed]);
       setNewAllergy("");
     }
   }
 
-  // Dynamically derive interactions based on the medicines list
+  // ── Fully dynamic interaction engine: checks ALL pairs against the knowledge base ──
   const interactions = useMemo<InteractionResult[]>(() => {
-    const list: InteractionResult[] = [];
-    const medsLower = medicines.map(m => m.toLowerCase());
+    const results: InteractionResult[] = [];
+    const seen = new Set<string>();
 
-    if (medsLower.some(m => m.includes("warfarin")) && medsLower.some(m => m.includes("ibuprofen") || m.includes("aspirin") || m.includes("combiflam"))) {
-      list.push({
-        drug1: "Warfarin",
-        drug2: medsLower.find(m => m.includes("ibuprofen")) ? "Ibuprofen" : "NSAID Painkiller",
-        severity: "severe",
-        description: "NSAIDs significantly increase the anticoagulant effect of Warfarin, causing high risk of gastrointestinal & internal hemorrhage.",
-        recommendation: "Strictly avoid combination. Use Paracetamol 650mg (Dolo) as a safe alternative analgesic."
-      });
+    for (let i = 0; i < medicines.length; i++) {
+      for (let j = i + 1; j < medicines.length; j++) {
+        const m1 = medicines[i];
+        const m2 = medicines[j];
+        const pairKey = [m1, m2].sort().join("|");
+        if (seen.has(pairKey)) continue;
+        seen.add(pairKey);
+
+        let matched = false;
+        for (const rule of DRUG_INTERACTION_RULES) {
+          const d1 = rule.pattern1.test(m1) && rule.pattern2.test(m2);
+          const d2 = rule.pattern1.test(m2) && rule.pattern2.test(m1);
+          if (d1 || d2) {
+            results.push({
+              drug1: d1 ? m1 : m2,
+              drug2: d1 ? m2 : m1,
+              severity: rule.severity,
+              description: rule.description,
+              recommendation: rule.recommendation,
+            });
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) {
+          results.push({
+            drug1: m1,
+            drug2: m2,
+            severity: "none",
+            description: `No major adverse drug-drug interactions reported between ${m1} and ${m2} in the clinical literature.`,
+            recommendation: "Safe to co-administer as prescribed by your doctor. Follow standard dosage schedules.",
+          });
+        }
+      }
     }
 
-    if (medsLower.some(m => m.includes("metformin") || m.includes("glycomet")) && medsLower.some(m => m.includes("ibuprofen") || m.includes("combiflam"))) {
-      list.push({
-        drug1: "Metformin",
-        drug2: "Ibuprofen",
-        severity: "mild",
-        description: "NSAIDs may slightly impair renal perfusion, reducing Metformin renal excretion and increasing risk of lactic acidosis.",
-        recommendation: "Monitor renal creatinine function and maintain proper hydration."
-      });
-    }
-
-    if (medsLower.some(m => m.includes("atorvastatin") || m.includes("atorva")) && medsLower.some(m => m.includes("azithromycin") || m.includes("azithral"))) {
-      list.push({
-        drug1: "Atorvastatin",
-        drug2: "Azithromycin",
-        severity: "moderate",
-        description: "Macrolide antibiotics may increase statin blood concentrations, elevating risk of myopathy and muscle pain.",
-        recommendation: "Temporarily pause statin during 3-day macrolide antibiotic course."
-      });
-    }
-
-    if (list.length === 0 && medicines.length >= 2) {
-      list.push({
+    if (results.length === 0 && medicines.length === 1) {
+      results.push({
         drug1: medicines[0],
-        drug2: medicines[1],
+        drug2: "—",
         severity: "none",
-        description: `No major adverse drug-drug interactions reported between ${medicines[0]} and ${medicines[1]}.`,
-        recommendation: "Safe to co-administer as prescribed by your doctor. Follow standard dosage schedules."
+        description: `Only one medicine entered (${medicines[0]}). Add at least two medicines to check interactions.`,
+        recommendation: "Add more medicines from your prescription to enable pair-wise interaction checking.",
       });
     }
 
-    return list;
+    return results;
   }, [medicines]);
 
-  // Dynamically derive allergy conflicts based on allergies list and medicines list
+  // ── Fully dynamic allergy engine: checks every medicine against every listed allergy ──
   const allergyResults = useMemo<AllergyResult[]>(() => {
-    const list: AllergyResult[] = [];
-    const allergiesLower = allergies.map(a => a.toLowerCase());
-    const medsLower = medicines.map(m => m.toLowerCase());
-
-    if (allergiesLower.some(a => a.includes("penicillin")) && medsLower.some(m => m.includes("amoxicillin") || m.includes("augmentin") || m.includes("ampicillin"))) {
-      const matchMed = medicines.find(m => /amoxicillin|augmentin|ampicillin/i.test(m)) || "Amoxicillin";
-      list.push({
-        drug: matchMed,
-        allergen: "Penicillin",
-        severity: "high",
-        reaction: `Anaphylaxis & severe skin rash risk — ${matchMed} is a beta-lactam penicillin class derivative. Strictly contraindicated.`
-      });
+    const results: AllergyResult[] = [];
+    for (const allergen of allergies) {
+      for (const medicine of medicines) {
+        for (const rule of ALLERGY_RULES) {
+          if (rule.allergenPattern.test(allergen) && rule.drugPattern.test(medicine)) {
+            if (!results.some(r => r.drug === medicine && r.allergen === allergen)) {
+              results.push({
+                drug: medicine,
+                allergen,
+                severity: rule.severity,
+                reaction: rule.reaction,
+              });
+            }
+          }
+        }
+      }
     }
-
-    if (allergiesLower.some(a => a.includes("sulfa")) && medsLower.some(m => m.includes("bactrim") || m.includes("septran") || m.includes("sulfamethoxazole"))) {
-      list.push({
-        drug: "Sulfamethoxazole",
-        allergen: "Sulfa Drugs",
-        severity: "high",
-        reaction: "Severe hypersensitivity and Stevens-Johnson Syndrome (SJS) risk. Avoid all sulfonamides."
-      });
-    }
-
-    return list;
+    return results;
   }, [medicines, allergies]);
 
-  const severeCount = interactions.filter((i) => i.severity === "severe").length;
-  const allergyCount = allergyResults.filter((a) => a.severity === "high").length;
+  const severeCount   = interactions.filter(i => i.severity === "severe").length;
+  const moderateCount = interactions.filter(i => i.severity === "moderate").length;
+  const allergyCount  = allergyResults.filter(a => a.severity === "high").length;
 
   return (
     <div className="space-y-5">
@@ -148,18 +169,34 @@ export function DrugInteractionAgent() {
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-400/20 border border-rose-400/40 text-rose-200 text-[10px] font-black uppercase tracking-widest mb-1.5">
               <Zap className="w-3 h-3" /> Agent 4 — Safety Audit
             </div>
-            <h2 className="text-2xl font-black tracking-tight text-white leading-tight">Drug Interaction &amp; Allergy Agent</h2>
+            <h2 className="text-2xl font-black tracking-tight text-white leading-tight">Drug Interaction & Allergy Safety Audit</h2>
             <p className="text-sm text-slate-300 font-medium mt-0.5">
-              Check drug-drug interactions &amp; patient allergy triggers before dispensing
+              Enter any medicines + known allergies → instant AI safety check across all pairs
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* ── Quick Preset Sets ── */}
+      <div className="rounded-2xl border border-red-100 bg-red-50/60 p-4">
+        <p className="text-xs font-black text-red-800 uppercase tracking-widest mb-2">⚡ Quick Test Sets (click to load)</p>
+        <div className="flex flex-wrap gap-2">
+          {QUICK_DRUG_SETS.map((set, idx) => (
+            <button
+              key={idx}
+              onClick={() => { setMedicines(set); setNewMed(""); }}
+              className="px-3 py-1.5 rounded-xl bg-white border-2 border-red-200 text-red-900 text-xs font-bold hover:bg-red-100 transition-all shadow-sm"
+            >
+              {set.join(" + ")}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* ── Medicine Input ── */}
       <div className="rounded-2xl border-2 border-sky-200 bg-white p-5 shadow">
         <h3 className="text-sm font-black text-sky-900 uppercase tracking-widest mb-3 flex items-center gap-2">
-          <Pill className="w-4 h-4 text-sky-600" /> Current &amp; New Medicines
+          <Pill className="w-4 h-4 text-sky-600" /> Current & New Medicines ({medicines.length} entered)
         </h3>
         <div className="flex flex-wrap gap-2 mb-3">
           {medicines.map((m, i) => (
@@ -170,17 +207,18 @@ export function DrugInteractionAgent() {
               </button>
             </span>
           ))}
+          {medicines.length === 0 && <span className="text-xs text-slate-400 font-semibold">No medicines added yet</span>}
         </div>
         <div className="flex gap-2">
           <input
             value={newMed}
             onChange={(e) => setNewMed(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addMedicine()}
-            placeholder="Add medicine name…"
+            placeholder="Type any medicine name and press Enter (e.g. Warfarin, Metformin, Atorvastatin)…"
             className="flex-1 rounded-xl border-2 border-sky-200 bg-sky-50/50 px-3.5 py-2.5 text-sm font-semibold text-sky-950 placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-400/30 outline-none transition-all"
           />
-          <button onClick={addMedicine} className="px-4 py-2.5 rounded-xl border-2 border-sky-300 text-sky-800 font-black hover:bg-sky-50 transition-all">
-            <Plus className="w-4 h-4" />
+          <button onClick={addMedicine} className="px-4 py-2.5 rounded-xl border-2 border-sky-300 text-sky-800 font-black hover:bg-sky-50 transition-all flex items-center gap-1">
+            <Plus className="w-4 h-4" /> Add
           </button>
         </div>
       </div>
@@ -206,24 +244,25 @@ export function DrugInteractionAgent() {
             value={newAllergy}
             onChange={(e) => setNewAllergy(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addAllergy()}
-            placeholder="Add allergy (e.g. Penicillin, Sulfa)…"
+            placeholder="Add known allergen (e.g. Penicillin, Sulfa, NSAID, Iodine)…"
             className="flex-1 rounded-xl border-2 border-red-200 bg-red-50/50 px-3.5 py-2.5 text-sm font-semibold text-red-950 placeholder:text-slate-400 focus:border-red-500 focus:ring-2 focus:ring-red-400/30 outline-none transition-all"
           />
-          <button onClick={addAllergy} className="px-4 py-2.5 rounded-xl border-2 border-red-300 text-red-800 font-black hover:bg-red-50 transition-all">
-            <Plus className="w-4 h-4" />
+          <button onClick={addAllergy} className="px-4 py-2.5 rounded-xl border-2 border-red-300 text-red-800 font-black hover:bg-red-50 transition-all flex items-center gap-1">
+            <Plus className="w-4 h-4" /> Add
           </button>
         </div>
       </div>
 
-      {/* ── Real-Time AI Safety Audit Output ── */}
-      <div className="space-y-5 animate-fade-in">
+      {/* ── AI Safety Audit Output ── */}
+      {medicines.length > 0 && (
+        <div className="space-y-5 animate-fade-in">
           {/* Summary Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: "Pairs Checked", value: interactions.length, color: "from-sky-700 to-sky-500", icon: "🔍" },
-              { label: "Severe Risks", value: severeCount, color: "from-red-700 to-red-500", icon: "🚨" },
-              { label: "Moderate Risks", value: interactions.filter((i) => i.severity === "moderate").length, color: "from-amber-700 to-amber-500", icon: "⚠️" },
-              { label: "Allergy Alerts", value: allergyCount, color: "from-rose-700 to-rose-500", icon: "💊" },
+              { label: "Severe Risks", value: severeCount, color: severeCount > 0 ? "from-red-700 to-red-500" : "from-slate-600 to-slate-400", icon: "🚨" },
+              { label: "Moderate Risks", value: moderateCount, color: moderateCount > 0 ? "from-amber-700 to-amber-500" : "from-slate-600 to-slate-400", icon: "⚠️" },
+              { label: "Allergy Alerts", value: allergyCount, color: allergyCount > 0 ? "from-rose-700 to-rose-500" : "from-slate-600 to-slate-400", icon: "💊" },
             ].map((stat, i) => (
               <div key={i} className={`rounded-2xl p-4 text-white shadow-lg bg-gradient-to-br ${stat.color} text-center`}>
                 <div className="text-2xl mb-1">{stat.icon}</div>
@@ -233,10 +272,13 @@ export function DrugInteractionAgent() {
             ))}
           </div>
 
-          {/* Drug–Drug Interactions */}
+          {/* Drug–Drug Interaction Results */}
           <div className="space-y-3">
             <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
               <Pill className="w-5 h-5 text-sky-600" /> Drug-Drug Interaction Results
+              <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                {interactions.length} pair{interactions.length !== 1 ? "s" : ""} analysed
+              </span>
             </h3>
             {interactions.map((r, i) => {
               const s = SEVERITY_STYLES[r.severity];
@@ -263,7 +305,7 @@ export function DrugInteractionAgent() {
           {allergyResults.length > 0 && (
             <div className="space-y-3">
               <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                <HeartPulse className="w-5 h-5 text-red-600" /> Allergy Alerts
+                <HeartPulse className="w-5 h-5 text-red-600" /> Allergy Conflict Alerts
               </h3>
               {allergyResults.map((a, i) => {
                 const s = ALLERGY_STYLES[a.severity];
@@ -276,7 +318,7 @@ export function DrugInteractionAgent() {
                         <span className="text-slate-500 font-bold text-sm">→ Allergen:</span>
                         <span className="font-black text-base text-red-800">{a.allergen}</span>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-[11px] font-black bg-red-200 text-red-950 border border-red-400`}>
+                      <span className="px-3 py-1 rounded-full text-[11px] font-black bg-red-200 text-red-950 border border-red-400">
                         ⚠ {s.label}
                       </span>
                     </div>
@@ -289,27 +331,27 @@ export function DrugInteractionAgent() {
 
           {allergyResults.length === 0 && (
             <div className="rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-4 flex items-center gap-3 shadow-sm">
-              <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+              <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
               <div>
                 <div className="text-sm font-black text-emerald-900">No Allergy Conflicts Detected</div>
-                <p className="text-xs text-emerald-700 font-semibold">All prescribed medicines are safe based on listed patient allergies.</p>
+                <p className="text-xs text-emerald-700 font-semibold">All prescribed medicines appear safe based on the listed patient allergies.</p>
               </div>
             </div>
           )}
 
-          {/* Process Flow */}
-          <div className="rounded-2xl border-2 border-red-100 bg-red-50 p-5">
-            <h3 className="text-xs font-black text-red-900 mb-3 uppercase tracking-widest">⚙️ How This Agent Works</h3>
-            <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
-              {["Input current medicines", "Add known allergies", "Check drug-drug pairs", "Detect allergy conflicts", "Warn before dispensing"].map((step, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="px-3 py-1.5 rounded-lg bg-white text-red-900 border-2 border-red-200 shadow-sm">{step}</span>
-                  {i < 4 && <ChevronRight className="w-4 h-4 text-red-300" />}
-                </div>
-              ))}
-            </div>
+          {/* Info note */}
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 flex items-start gap-2 text-xs text-slate-600">
+            <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+            <span>This AI safety audit is for informational purposes only and does not replace professional pharmacist or physician advice. Always verify with a licensed healthcare provider before changing medication.</span>
           </div>
         </div>
+      )}
+
+      {medicines.length === 0 && (
+        <div className="rounded-2xl border-2 border-dashed border-slate-200 p-10 text-center text-slate-500 text-sm font-semibold">
+          Add at least one medicine above to begin the AI Safety Audit →
+        </div>
+      )}
     </div>
   );
 }

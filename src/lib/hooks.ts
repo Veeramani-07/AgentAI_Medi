@@ -10,6 +10,7 @@ import type {
 } from "./types";
 import { TOP_INDIA_HOSPITALS, TOP_INDIA_EMERGENCY_REQUESTS } from "./indiaHospitalsData";
 import { haversineKm } from "./utils";
+import { getCustomPharmacies } from "./pharmacyStorage";
 
 export interface PharmacyWithDistance extends Pharmacy {
   distance_km: number | null;
@@ -20,34 +21,40 @@ export function usePharmacies(userLat: number | null, userLng: number | null) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("pharmacies")
-        .select("*")
-        .order("rating", { ascending: false });
-      if (!active) return;
+  const buildList = useCallback(async () => {
+    setLoading(true);
+    const { data, error: dbErr } = await supabase
+      .from("pharmacies")
+      .select("*")
+      .order("rating", { ascending: false });
 
-      const dbPharmacies = data || [];
-      const existingIds = new Set(dbPharmacies.map((p) => p.id));
-      const merged: Pharmacy[] = [
-        ...dbPharmacies,
-        ...TOP_INDIA_HOSPITALS.filter((h) => !existingIds.has(h.id)),
-      ];
+    const dbPharmacies = data || [];
+    const customPharmacies = getCustomPharmacies();
+    const existingIds = new Set(dbPharmacies.map((p) => p.id));
 
-      if (error) setError(error.message);
-      setPharmacies(
-        merged.map((p) => ({
-          ...p,
-          distance_km: userLat != null && userLng != null ? haversineKm(userLat, userLng, p.lat, p.lng) : null,
-        }))
-      );
-      setLoading(false);
-    })();
-    return () => { active = false; };
+    const merged: Pharmacy[] = [
+      ...customPharmacies.filter((c) => !existingIds.has(c.id)),
+      ...dbPharmacies,
+      ...TOP_INDIA_HOSPITALS.filter((h) => !existingIds.has(h.id)),
+    ];
+
+    if (dbErr) setError(dbErr.message);
+    setPharmacies(
+      merged.map((p) => ({
+        ...p,
+        distance_km: userLat != null && userLng != null ? haversineKm(userLat, userLng, p.lat, p.lng) : null,
+      }))
+    );
+    setLoading(false);
   }, [userLat, userLng]);
+
+  useEffect(() => {
+    buildList();
+    // Re-fetch whenever a new pharmacy is saved locally
+    const handler = () => buildList();
+    window.addEventListener("medifinder_pharmacies_updated", handler);
+    return () => window.removeEventListener("medifinder_pharmacies_updated", handler);
+  }, [buildList]);
 
   return { pharmacies, loading, error };
 }
