@@ -16,7 +16,7 @@ export interface PharmacyWithDistance extends Pharmacy {
 }
 
 export function usePharmacies(userLat: number | null, userLng: number | null) {
-  const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
+  const [pharmacies, setPharmacies] = useState<PharmacyWithDistance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,24 +32,24 @@ export function usePharmacies(userLat: number | null, userLng: number | null) {
 
       const dbPharmacies = data || [];
       const existingIds = new Set(dbPharmacies.map((p) => p.id));
-      const merged = [
+      const merged: Pharmacy[] = [
         ...dbPharmacies,
         ...TOP_INDIA_HOSPITALS.filter((h) => !existingIds.has(h.id)),
       ];
 
       if (error) setError(error.message);
-      setPharmacies(merged);
+      setPharmacies(
+        merged.map((p) => ({
+          ...p,
+          distance_km: userLat != null && userLng != null ? haversineKm(userLat, userLng, p.lat, p.lng) : null,
+        }))
+      );
       setLoading(false);
     })();
     return () => { active = false; };
-  }, []);
+  }, [userLat, userLng]);
 
-  const withDistance: PharmacyWithDistance[] = pharmacies.map((p) => ({
-    ...p,
-    distance_km: userLat != null && userLng != null ? haversineKm(userLat, userLng, p.lat, p.lng) : null,
-  }));
-
-  return { pharmacies: withDistance, loading, error };
+  return { pharmacies, loading, error };
 }
 
 export function useMedicines() {

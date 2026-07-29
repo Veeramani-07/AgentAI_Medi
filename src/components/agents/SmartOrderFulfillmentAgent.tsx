@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Truck, CheckCircle2, MapPin, Clock, Package, ChevronRight, Phone, Building2, ShieldCheck, IndianRupee, Zap } from "lucide-react";
+import { Truck, CheckCircle2, MapPin, Clock, Package, ChevronRight, Phone, Building2, ShieldCheck, IndianRupee, Zap, Sparkles } from "lucide-react";
 
 interface OrderStep {
   title: string;
@@ -27,55 +27,58 @@ interface OrderDetails {
   statusSteps: OrderStep[];
 }
 
-const DEMO_ORDER: OrderDetails = {
-  orderId: "MED-2026-88421",
-  customerName: "Priya Sundaram",
-  phone: "+91 98765 43210",
-  deliveryAddress: "No. 42, 3rd Cross Street, T. Nagar, Chennai - 600017",
-  assignedPharmacy: "Apollo Pharmacy - T. Nagar Branch",
-  pharmacyDistanceKm: 1.8,
-  medicine: "Paracetamol 650mg (Pack of 15) x 2",
-  quantity: 30,
-  totalPrice: 250.00,
-  deliveryFee: 30.00,
-  finalAmount: 280.00,
-  paymentStatus: "Paid via UPI",
-  deliveryAgent: "Karthik R. (Dunzo Express Partner)",
-  deliveryAgentPhone: "+91 91234 56789",
-  estimatedDeliveryTime: "22 mins",
-  statusSteps: [
-    { title: "Order Placed & Verified", timestamp: "10:15 AM", completed: true, active: false },
-    { title: "Assigned to Nearest Pharmacy", timestamp: "10:16 AM", completed: true, active: false },
-    { title: "Packed by Pharmacist", timestamp: "10:20 AM", completed: true, active: false },
-    { title: "Delivery Agent Picked Up", timestamp: "10:25 AM", completed: true, active: true },
-    { title: "Delivered to Doorstep", timestamp: "Est. 10:37 AM", completed: false, active: false },
-  ],
-};
-
 export function SmartOrderFulfillmentAgent() {
-  const [loading, setLoading] = useState(false);
-  const [orderCreated, setOrderCreated] = useState(false);
-  const [order, setOrder] = useState<OrderDetails | null>(null);
+  const [customerName, setCustomerName] = useState("Priya Sundaram");
+  const [phone, setPhone] = useState("+91 98765 43210");
   const [medName, setMedName] = useState("Paracetamol 650mg");
   const [qty, setQty] = useState(2);
+  const [unitPrice, setUnitPrice] = useState(120);
   const [address, setAddress] = useState("T. Nagar, Chennai");
   const [paymentMethod, setPaymentMethod] = useState<"UPI" | "COD">("UPI");
 
+  const [loading, setLoading] = useState(false);
+  const [order, setOrder] = useState<OrderDetails | null>(null);
+
   function handleCreateOrder() {
     setLoading(true);
+
     setTimeout(() => {
+      const orderNum = Math.floor(10000 + Math.random() * 90000);
+      const subtotal = qty * unitPrice;
+      const fee = subtotal > 500 ? 0 : 35;
+      const total = subtotal + fee;
+      const dist = Math.round((1.2 + Math.random() * 3.5) * 10) / 10;
+      const eta = Math.round(15 + dist * 4);
+
       setOrder({
-        ...DEMO_ORDER,
-        medicine: `${medName} (Qty: ${qty})`,
+        orderId: `MED-2026-${orderNum}`,
+        customerName,
+        phone,
         deliveryAddress: address,
+        assignedPharmacy: `Apollo Pharmacy - ${address.split(",")[0]} Branch`,
+        pharmacyDistanceKm: dist,
+        medicine: `${medName} (Qty: ${qty})`,
+        quantity: qty,
+        totalPrice: subtotal,
+        deliveryFee: fee,
+        finalAmount: total,
         paymentStatus: paymentMethod === "UPI" ? "Paid via UPI" : "Cash on Delivery",
+        deliveryAgent: "Karthik R. (Dunzo Express Rider #884)",
+        deliveryAgentPhone: "+91 91234 56789",
+        estimatedDeliveryTime: `${eta} mins`,
+        statusSteps: [
+          { title: "Order Placed & Verified", timestamp: "Just now", completed: true, active: false },
+          { title: "Assigned to Nearest Pharmacy", timestamp: "Just now", completed: true, active: false },
+          { title: "Packed by Pharmacist", timestamp: "In progress", completed: true, active: true },
+          { title: "Delivery Agent Picked Up", timestamp: `Est. ${eta - 8} mins`, completed: false, active: false },
+          { title: "Delivered to Doorstep", timestamp: `Est. ${eta} mins`, completed: false, active: false },
+        ],
       });
-      setOrderCreated(true);
       setLoading(false);
-    }, 1600);
+    }, 800);
   }
 
-  const inputCls = "w-full rounded-xl border-2 border-sky-200 bg-sky-50/50 px-3.5 py-2.5 text-sm font-semibold text-sky-950 placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-400/30 outline-none transition-all";
+  const inputCls = "w-full rounded-xl border-2 border-emerald-200 bg-emerald-50/50 px-3.5 py-2.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-400/30 outline-none transition-all";
 
   return (
     <div className="space-y-5">
@@ -86,8 +89,6 @@ export function SmartOrderFulfillmentAgent() {
         style={{ background: "linear-gradient(135deg, #071930 0%, #047857 50%, #0d9488 100%)" }}
       >
         <div className="absolute inset-0 bg-grid opacity-10 pointer-events-none" />
-        <div className="absolute -bottom-8 -right-8 w-48 h-48 rounded-full opacity-10 pointer-events-none"
-          style={{ background: "radial-gradient(circle, #34d399, transparent 70%)" }} />
         <div className="relative z-10 flex items-start gap-4">
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shrink-0"
             style={{ background: "linear-gradient(135deg, #047857, #0d9488)" }}>
@@ -99,180 +100,139 @@ export function SmartOrderFulfillmentAgent() {
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white leading-tight">Smart Order &amp; Fulfillment Agent</h2>
             <p className="text-sm text-slate-300 font-medium mt-0.5">
-              Automates order routing to nearest stocked pharmacy, live delivery tracking &amp; digital billing
+              Routes order to nearest pharmacy, assigns express rider &amp; tracks live delivery ETA dynamically.
             </p>
           </div>
         </div>
       </div>
 
-      {/* ── Place Order Form ── */}
-      <div className="rounded-2xl border-2 border-sky-200 bg-white p-6 shadow">
-        <h3 className="text-sm font-black text-sky-900 uppercase tracking-widest mb-4 flex items-center gap-2">
-          <Package className="w-5 h-5 text-sky-600" /> Dispatch New Medicine Order
+      {/* ── Dynamic Order Input ── */}
+      <div className="rounded-2xl border-2 border-emerald-200 bg-white p-6 shadow space-y-4">
+        <h3 className="text-sm font-black text-emerald-950 uppercase tracking-widest flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-emerald-600" /> Enter Custom Order Details
         </h3>
-        <div className="grid sm:grid-cols-2 gap-4 mb-4">
+        <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-black text-sky-800 uppercase tracking-wide mb-1.5">Medicine Required</label>
-            <input value={medName} onChange={(e) => setMedName(e.target.value)} className={inputCls} placeholder="e.g. Paracetamol 650mg" />
+            <label className="text-xs font-bold text-slate-600 mb-1 block">Customer Name</label>
+            <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} className={inputCls} />
           </div>
           <div>
-            <label className="block text-xs font-black text-sky-800 uppercase tracking-wide mb-1.5">Quantity (Strips / Units)</label>
-            <input type="number" min="1" max="20" value={qty} onChange={(e) => setQty(Number(e.target.value))} className={inputCls} />
+            <label className="text-xs font-bold text-slate-600 mb-1 block">Phone Number</label>
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} />
           </div>
-        </div>
-        <div className="mb-4">
-          <label className="block text-xs font-black text-sky-800 uppercase tracking-wide mb-1.5">Delivery Address</label>
-          <input value={address} onChange={(e) => setAddress(e.target.value)} className={inputCls} placeholder="Enter delivery location / area" />
-        </div>
-        <div className="mb-5">
-          <label className="block text-xs font-black text-sky-800 uppercase tracking-wide mb-2">Payment Method</label>
-          <div className="flex gap-4">
-            {([["UPI", "📱 UPI (GPay / PhonePe / Paytm)"], ["COD", "💵 Cash on Delivery"]] as const).map(([val, label]) => (
-              <label key={val} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 cursor-pointer transition-all text-sm font-bold ${paymentMethod === val ? "border-sky-500 bg-sky-50 text-sky-900" : "border-slate-200 bg-white text-slate-600 hover:border-sky-200"}`}>
-                <input type="radio" name="pay" checked={paymentMethod === val} onChange={() => setPaymentMethod(val)} className="accent-sky-600" />
-                {label}
-              </label>
-            ))}
+          <div>
+            <label className="text-xs font-bold text-slate-600 mb-1 block">Medicine Name</label>
+            <input value={medName} onChange={(e) => setMedName(e.target.value)} className={inputCls} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs font-bold text-slate-600 mb-1 block">Quantity</label>
+              <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} className={inputCls} />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 mb-1 block">Unit Price (₹)</label>
+              <input type="number" min={10} value={unitPrice} onChange={(e) => setUnitPrice(Number(e.target.value))} className={inputCls} />
+            </div>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs font-bold text-slate-600 mb-1 block">Delivery Address / Landmark</label>
+            <input value={address} onChange={(e) => setAddress(e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-600 mb-1 block">Payment Option</label>
+            <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as any)} className={inputCls}>
+              <option value="UPI">Paid via UPI / Netbanking</option>
+              <option value="COD">Cash on Delivery (COD)</option>
+            </select>
           </div>
         </div>
         <button
           onClick={handleCreateOrder}
           disabled={loading}
-          className="w-full py-3.5 rounded-xl text-sm font-black text-white shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.97] disabled:opacity-50 flex items-center justify-center gap-2"
-          style={{ background: "linear-gradient(135deg, #047857 0%, #0d9488 50%, #0284c7 100%)" }}
+          className="w-full py-3.5 rounded-xl text-sm font-black text-white shadow-lg transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+          style={{ background: "linear-gradient(135deg, #047857 0%, #0d9488 100%)" }}
         >
-          {loading ? (
-            <><Clock className="w-5 h-5 animate-spin" /> Routing Order to Nearest Stocked Pharmacy…</>
-          ) : (
-            <><Truck className="w-5 h-5" /> {orderCreated ? "Place Another Order" : "Place & Route Order"}</>
-          )}
+          {loading ? "Routing to Nearest Pharmacy..." : "Route & Dispatch Order Dynamically"}
         </button>
       </div>
 
-      {/* ── Order Results ── */}
+      {/* ── Loading State ── */}
+      {loading && (
+        <div className="rounded-2xl border-2 border-emerald-100 bg-white p-10 text-center animate-pulse shadow">
+          <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center bg-emerald-600 text-white">
+            <Truck className="w-6 h-6 animate-spin" />
+          </div>
+          <p className="text-base font-black text-emerald-900">Locating nearest pharmacy &amp; assigning express rider...</p>
+        </div>
+      )}
+
+      {/* ── Order Receipt & Live Tracking ── */}
       {order && !loading && (
-        <>
-          {/* Order Header */}
-          <div className="rounded-2xl border-2 border-emerald-300 bg-emerald-50/40 p-5 shadow">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div>
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-950 border-2 border-emerald-300 text-xs font-black">
-                    Order #{order.orderId}
-                  </span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-black border-2 ${order.paymentStatus === "Paid via UPI" ? "bg-sky-100 text-sky-950 border-sky-300" : "bg-amber-100 text-amber-950 border-amber-300"}`}>
-                    {order.paymentStatus}
-                  </span>
-                </div>
-                <h3 className="text-lg font-black text-slate-900 mt-2">{order.medicine}</h3>
-                <p className="text-xs text-slate-600 font-semibold flex items-center gap-1.5 mt-1">
-                  <MapPin className="w-3.5 h-3.5 text-sky-500" /> {order.deliveryAddress}
-                </p>
+        <div className="space-y-4 animate-fade-in">
+          {/* Order Header Card */}
+          <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50/50 p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-black text-emerald-950 text-base">{order.orderId}</span>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-200 text-emerald-900 font-bold text-[10px]">
+                  {order.paymentStatus}
+                </span>
               </div>
-              <div className="text-right">
-                <div className="text-2xl font-black text-sky-900 flex items-center gap-1 justify-end">
-                  <IndianRupee className="w-5 h-5" />{order.finalAmount.toFixed(2)}
-                </div>
-                <div className="text-xs text-slate-500 font-semibold mt-0.5">
-                  Est. Delivery in <span className="text-emerald-700 font-black">{order.estimatedDeliveryTime}</span>
-                </div>
-              </div>
+              <p className="text-xs text-slate-600 mt-1 font-semibold">
+                Customer: <strong className="text-slate-900">{order.customerName}</strong> ({order.phone})
+              </p>
+            </div>
+            <div className="text-left sm:text-right">
+              <div className="text-xs text-slate-500 font-bold uppercase">Total Amount</div>
+              <div className="text-2xl font-black text-emerald-900">₹{order.finalAmount.toFixed(2)}</div>
+              <div className="text-[11px] text-emerald-700 font-bold">Est. Delivery in {order.estimatedDeliveryTime}</div>
             </div>
           </div>
 
-          {/* Pharmacy & Rider Info */}
+          {/* Delivery & Rider Details */}
           <div className="grid sm:grid-cols-2 gap-3">
-            <div className="rounded-2xl border-2 border-sky-200 bg-white p-4 shadow-sm">
-              <h4 className="text-[10px] font-black text-sky-700 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                <Building2 className="w-4 h-4" /> Assigned Fulfillment Pharmacy
+            <div className="rounded-2xl border-2 border-slate-100 bg-white p-4 shadow-sm">
+              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 text-emerald-600" /> Assigned Pharmacy
               </h4>
-              <div className="font-black text-sky-950 text-sm mb-1">{order.assignedPharmacy}</div>
-              <div className="text-xs text-slate-600 font-semibold">Distance: <span className="font-black text-sky-800">{order.pharmacyDistanceKm} km away</span></div>
-              <div className="text-xs text-emerald-700 font-black flex items-center gap-1 mt-2">
-                <ShieldCheck className="w-3.5 h-3.5" /> Verified In-Stock Partner
+              <div className="font-black text-slate-900 text-sm">{order.assignedPharmacy}</div>
+              <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-emerald-600" /> {order.pharmacyDistanceKm} km away from delivery address
               </div>
             </div>
-            <div className="rounded-2xl border-2 border-emerald-200 bg-white p-4 shadow-sm">
-              <h4 className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                <Truck className="w-4 h-4" /> Delivery Agent
+            <div className="rounded-2xl border-2 border-slate-100 bg-white p-4 shadow-sm">
+              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <Truck className="w-3.5 h-3.5 text-emerald-600" /> Assigned Delivery Partner
               </h4>
-              <div className="font-black text-emerald-950 text-sm mb-1">{order.deliveryAgent}</div>
-              <div className="text-xs text-sky-700 font-black flex items-center gap-1 mb-1">
-                <Phone className="w-3.5 h-3.5" /> {order.deliveryAgentPhone}
-              </div>
-              <div className="text-xs text-slate-500 font-semibold">Status: On the way with your package 🚴</div>
+              <div className="font-black text-slate-900 text-sm">{order.deliveryAgent}</div>
+              <a href={`tel:${order.deliveryAgentPhone}`} className="text-xs text-emerald-700 font-bold mt-1 inline-flex items-center gap-1">
+                <Phone className="w-3 h-3" /> Call Rider ({order.deliveryAgentPhone})
+              </a>
             </div>
           </div>
 
-          {/* Live Timeline Tracker */}
-          <div className="rounded-2xl border-2 border-sky-100 bg-white p-6 shadow">
-            <h3 className="text-base font-black text-sky-950 mb-5 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-sky-600" /> Live Order Tracking Timeline
-            </h3>
-            <div className="space-y-4 relative before:absolute before:left-3.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
-              {order.statusSteps.map((step, i) => (
-                <div key={i} className="flex items-start gap-4 relative z-10">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 transition-all ${
-                    step.completed
-                      ? "bg-emerald-600 text-white shadow-md"
-                      : step.active
-                      ? "bg-amber-500 text-white ring-4 ring-amber-100 shadow-md"
-                      : "bg-slate-200 text-slate-500"
+          {/* Status Timeline */}
+          <div className="rounded-2xl border-2 border-slate-100 bg-white p-5 shadow-sm">
+            <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Live Dispatch Timeline</h3>
+            <div className="space-y-3">
+              {order.statusSteps.map((step, idx) => (
+                <div key={idx} className="flex items-center gap-3">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${
+                    step.active ? "bg-amber-500 text-white animate-pulse" : step.completed ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-400"
                   }`}>
-                    {step.completed ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+                    {step.completed ? "✓" : idx + 1}
                   </div>
-                  <div className="flex-1 pt-0.5">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className={`text-sm font-black ${step.active ? "text-amber-800" : step.completed ? "text-slate-900" : "text-slate-400"}`}>
-                        {step.title}
-                      </span>
-                      <span className="text-xs text-slate-500 font-bold whitespace-nowrap">{step.timestamp}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-xs font-black ${step.active ? "text-amber-900" : step.completed ? "text-slate-900" : "text-slate-400"}`}>
+                      {step.title}
                     </div>
-                    {step.active && (
-                      <div className="mt-1 text-[11px] font-black text-amber-700 animate-pulse">● In Progress…</div>
-                    )}
                   </div>
+                  <span className="text-[10px] font-mono text-slate-400 font-semibold">{step.timestamp}</span>
                 </div>
               ))}
             </div>
           </div>
-
-          {/* Digital Invoice */}
-          <div className="rounded-2xl border-2 border-emerald-200 bg-white p-5 shadow">
-            <h3 className="text-sm font-black text-emerald-900 mb-4 flex items-center gap-2 uppercase tracking-wide">
-              <IndianRupee className="w-4 h-4" /> Digital Invoice Breakdown
-            </h3>
-            <div className="space-y-3 text-sm">
-              {[
-                { label: "Medicine Subtotal", value: `₹${order.totalPrice.toFixed(2)}`, sub: false },
-                { label: "Fulfillment & Delivery Fee", value: `₹${order.deliveryFee.toFixed(2)}`, sub: false },
-                { label: "GST & Healthcare Cess", value: "Included", sub: false },
-              ].map((row, i) => (
-                <div key={i} className="flex justify-between items-center">
-                  <span className="text-slate-600 font-semibold">{row.label}:</span>
-                  <span className="font-black text-slate-800">{row.value}</span>
-                </div>
-              ))}
-              <div className="border-t-2 border-emerald-200 pt-3 flex justify-between items-center">
-                <span className="font-black text-emerald-950 text-base">Total Amount Paid:</span>
-                <span className="font-black text-sky-800 text-xl">₹{order.finalAmount.toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Process Flow */}
-          <div className="rounded-2xl border-2 border-emerald-100 bg-emerald-50 p-5">
-            <h3 className="text-xs font-black text-emerald-900 mb-3 uppercase tracking-widest">⚙️ How This Agent Works</h3>
-            <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
-              {["Receive customer order", "Route to nearest stocked pharmacy", "Assign delivery partner", "Track order live", "Process digital invoice"].map((step, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="px-3 py-1.5 rounded-lg bg-white text-emerald-900 border-2 border-emerald-200 shadow-sm">{step}</span>
-                  {i < 4 && <ChevronRight className="w-4 h-4 text-emerald-300" />}
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
+        </div>
       )}
     </div>
   );

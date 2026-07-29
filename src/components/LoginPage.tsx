@@ -28,8 +28,16 @@ export function LoginPage({ onNavigateRegister }: LoginPageProps) {
       {/* ── Full-Screen Background Image ── */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: "url('/login_bg.png')" }}
-      />
+        style={{
+          backgroundImage: "url('/login_bg.png')",
+          background: "linear-gradient(135deg, #071930 0%, #0c2a52 30%, #0284c7 65%, #38bdf8 90%, #059669 100%)",
+        }}
+      >
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: "url('/login_bg.png')" }}
+        />
+      </div>
 
       {/* ── Dark overlay to dim background ── */}
       <div className="absolute inset-0 bg-slate-950/55 pointer-events-none" />

@@ -6,18 +6,27 @@ interface HeaderProps {
   onTab: (id: string) => void;
   onAddPharmacy: () => void;
   hasLocation: boolean;
-  onUseLocation: () => void;
+  locationName?: string | null;
+  onOpenLocationModal: () => void;
   onSignOut: () => void;
 }
 
 const TABS = [
   { id: "home",       label: "Home" },
-  { id: "agents",     label: "🤖 5 Pharmacy AIs" },
+  { id: "agents",     label: "🤖 10 Agentic AIs" },
   { id: "nearby",     label: "Nearby Finder" },
   { id: "assistant",  label: "AI Chat Assistant" },
 ];
 
-export function Header({ activeTab, onTab, onAddPharmacy, hasLocation, onUseLocation, onSignOut }: HeaderProps) {
+export function Header({
+  activeTab,
+  onTab,
+  onAddPharmacy,
+  hasLocation,
+  locationName,
+  onOpenLocationModal,
+  onSignOut,
+}: HeaderProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -79,15 +88,16 @@ export function Header({ activeTab, onTab, onAddPharmacy, hasLocation, onUseLoca
           {/* ── Action Buttons ── */}
           <div className="flex items-center gap-2">
             <button
-              onClick={onUseLocation}
-              className={`hidden sm:inline-flex btn-secondary text-xs px-3 py-2 gap-1.5 ${
+              onClick={onOpenLocationModal}
+              className={`hidden sm:inline-flex btn-secondary text-xs px-3 py-2 gap-1.5 max-w-[200px] truncate ${
                 hasLocation
-                  ? "border-secondary-300 bg-secondary-50 text-secondary-700"
+                  ? "border-secondary-300 bg-secondary-50 text-secondary-700 font-bold"
                   : "text-ink-600"
               }`}
+              title={locationName || "Set Location"}
             >
-              <MapPin className={`w-3.5 h-3.5 ${hasLocation ? "text-secondary-600" : ""}`} />
-              {hasLocation ? "Location On" : "My Location"}
+              <MapPin className={`w-3.5 h-3.5 shrink-0 ${hasLocation ? "text-secondary-600" : ""}`} />
+              <span className="truncate">{locationName ? locationName : "Set Location"}</span>
             </button>
 
             <button
@@ -137,11 +147,11 @@ export function Header({ activeTab, onTab, onAddPharmacy, hasLocation, onUseLoca
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => { onUseLocation(); setOpen(false); }}
-                className="btn-secondary flex-1 text-xs py-2"
+                onClick={() => { onOpenLocationModal(); setOpen(false); }}
+                className="btn-secondary flex-1 text-xs py-2 truncate"
               >
-                <MapPin className="w-3.5 h-3.5" />
-                {hasLocation ? "Location On" : "Use Location"}
+                <MapPin className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{locationName || "Set Location"}</span>
               </button>
               <button
                 onClick={() => { onAddPharmacy(); setOpen(false); }}

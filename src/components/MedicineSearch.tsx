@@ -1,12 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Search, Pill, Phone, MapPin, Navigation, Filter, ChevronDown, Package,
-  Stethoscope, AlertCircle,
+  Stethoscope, AlertCircle, Globe, ShieldAlert, Sparkles, Loader2,
 } from "lucide-react";
 import { useMedicines, useInventoryByMedicine } from "@/lib/hooks";
 import { MEDICINE_CATEGORIES, formatPrice, formatDistance } from "@/lib/utils";
 import { StockBadge, LoadingSpinner, EmptyState, VerifiedBadge } from "./Badges";
 import type { MedicineCategory } from "@/lib/types";
+import { getDetailedMedicineByName } from "@/lib/medicineDetailsData";
+import { fetchFDADataForDrug, type OpenFDADrugInfo } from "@/lib/onlinePharmacyApi";
 
 const CATEGORY_ICONS: Partial<Record<MedicineCategory, typeof Pill>> = {
   Antibiotic: Stethoscope,
@@ -22,6 +24,10 @@ export function MedicineSearch({ userLat, userLng }: { userLat: number | null; u
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<MedicineCategory | "all">("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Live openFDA API response state
+  const [fdaData, setFdaData] = useState<OpenFDADrugInfo | null>(null);
+  const [loadingFda, setLoadingFda] = useState(false);
 
   const filtered = useMemo(() => {
     let list = medicines;
@@ -39,6 +45,18 @@ export function MedicineSearch({ userLat, userLng }: { userLat: number | null; u
 
   const selected = medicines.find((m) => m.id === selectedId) || null;
   const { rows: inventory, loading: invLoading } = useInventoryByMedicine(selectedId);
+
+  // Fetch live FDA data when medicine selection changes
+  useEffect(() => {
+    if (selected) {
+      setLoadingFda(true);
+      fetchFDADataForDrug(selected.name)
+        .then((data) => setFdaData(data))
+        .finally(() => setLoadingFda(false));
+    } else {
+      setFdaData(null);
+    }
+  }, [selected]);
 
   // attach distance
   const inventoryWithDist = useMemo(() => {
@@ -141,7 +159,7 @@ export function MedicineSearch({ userLat, userLng }: { userLat: number | null; u
               <div className="flex items-start justify-between gap-3 pb-4 border-b border-ink-100">
                 <div>
                   <h3 className="text-xl font-bold text-ink-900">{selected.name}</h3>
-                  <p className="text-sm text-ink-500">Generic: {selected.generic_name}</p>
+                  <p className="text-sm text-ink-500 font-semibold">Generic Composition: {selected.generic_name}</p>
                   <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                     <span className="chip-secondary">{selected.category}</span>
                     <span className="chip-neutral">{selected.form}</span>
@@ -151,6 +169,37 @@ export function MedicineSearch({ userLat, userLng }: { userLat: number | null; u
                       : <span className="chip-success">Over-the-counter</span>}
                   </div>
                   {selected.description && <p className="text-sm text-ink-600 mt-3">{selected.description}</p>}
+
+                  {/* Dynamic openFDA Online API Data Card */}
+                  {loadingFda ? (
+                    <div className="mt-3 p-3 rounded-xl bg-slate-100 text-xs flex items-center gap-2 text-slate-600">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                      <span>Fetching live openFDA API drug details...</span>
+                    </div>
+                  ) : fdaData ? (
+                    <div className="mt-3 p-3.5 rounded-xl bg-gradient-to-r from-sky-50 to-indigo-50 border border-sky-200 text-xs space-y-1.5">
+                      <div className="font-bold text-sky-900 flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5 text-sky-600" /> openFDA Online API Live Data
+                      </div>
+                      <div><strong className="text-slate-900">Active Ingredient:</strong> {fdaData.activeIngredient.join(", ")}</div>
+                      <div><strong className="text-slate-900">Manufacturer:</strong> {fdaData.manufacturerName}</div>
+                      <div><strong className="text-rose-900 font-bold">FDA Warning Summary:</strong> {fdaData.warnings[0]?.slice(0, 140)}...</div>
+                    </div>
+                  ) : null}
+
+                  {/* Rich Medical Details */}
+                  {(() => {
+                    const extra = getDetailedMedicineByName(selected.name);
+                    if (!extra) return null;
+                    return (
+                      <div className="mt-4 p-3.5 rounded-xl bg-sky-50/70 border border-sky-200 text-xs space-y-2">
+                        <div><strong className="text-sky-900">Primary Uses:</strong> {extra.uses.join(", ")}</div>
+                        <div><strong className="text-emerald-900">Standard Dosage:</strong> {extra.standardDosage}</div>
+                        <div><strong className="text-amber-900">Precautions:</strong> {extra.precautions.join("; ")}</div>
+                        <div><strong className="text-emerald-800">Jan Aushadhi Generic Savings:</strong> {extra.genericAlternative.name} (Save {extra.genericAlternative.savingsPercent}%)</div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 

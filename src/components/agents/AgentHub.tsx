@@ -1,13 +1,32 @@
 import { useState } from "react";
-import { Search, Package, FileText, ShieldAlert, Truck, Network, Sparkles, Activity } from "lucide-react";
+import {
+  Search, Package, FileText, ShieldAlert, Truck, Network, Sparkles, Activity, Stethoscope,
+  Ambulance, ShieldCheck, Video, FlaskConical,
+} from "lucide-react";
 import { MedicineSearchAgent } from "./MedicineSearchAgent";
 import { InventoryManagementAgent } from "./InventoryManagementAgent";
 import { PrescriptionVerificationAgent } from "./PrescriptionVerificationAgent";
 import { DrugInteractionAgent } from "./DrugInteractionAgent";
 import { SmartOrderFulfillmentAgent } from "./SmartOrderFulfillmentAgent";
+import { SymptomTriageAgent } from "./SymptomTriageAgent";
+import { EmergencyAmbulanceAgent } from "./EmergencyAmbulanceAgent";
+import { InsuranceSubsidyAgent } from "./InsuranceSubsidyAgent";
+import { DoctorConsultationAgent } from "./DoctorConsultationAgent";
+import { ClinicalTrialMedicineAgent } from "./ClinicalTrialMedicineAgent";
 import { MultiAgentOrchestrator } from "./MultiAgentOrchestrator";
 
-export type AgentId = "swarm" | "search" | "inventory" | "prescription" | "interaction" | "fulfillment";
+export type AgentId =
+  | "swarm"
+  | "search"
+  | "inventory"
+  | "prescription"
+  | "interaction"
+  | "fulfillment"
+  | "triage"
+  | "ambulance"
+  | "insurance"
+  | "doctor"
+  | "clinical";
 
 interface AgentHubProps {
   initialAgent?: AgentId;
@@ -19,8 +38,8 @@ const AGENTS = [
     name: "★ Multi-AI Swarm Engine",
     shortName: "Swarm Orchestrator",
     icon: Network,
-    badge: "5-Agent Mesh",
-    desc: "Coordinates all 5 pharmacy agents in a DAG execution mesh",
+    badge: "10-Agent Mesh",
+    desc: "Coordinates all 10 specialized pharmacy & healthcare AI agents in a DAG execution mesh",
     gradient: "from-violet-800 to-indigo-700",
     activeBg: "linear-gradient(135deg, #5b21b6, #3730a3)",
     badgeColor: "bg-violet-100 text-violet-900 border-violet-300",
@@ -80,6 +99,61 @@ const AGENTS = [
     activeBg: "linear-gradient(135deg, #047857, #0d9488)",
     badgeColor: "bg-emerald-100 text-emerald-900 border-emerald-300",
   },
+  {
+    id: "triage" as AgentId,
+    name: "6. Symptom & Clinical Triage",
+    shortName: "Symptom AI",
+    icon: Stethoscope,
+    badge: "Clinical Triage",
+    desc: "Matches patient symptoms directly to recommended drugs & equipped hospitals",
+    gradient: "from-purple-900 to-violet-800",
+    activeBg: "linear-gradient(135deg, #6d28d9, #0284c7)",
+    badgeColor: "bg-purple-100 text-purple-900 border-purple-300",
+  },
+  {
+    id: "ambulance" as AgentId,
+    name: "7. Emergency Ambulance Dispatch",
+    shortName: "Emergency Dispatch",
+    icon: Ambulance,
+    badge: "ALS Dispatch",
+    desc: "Triages emergency severity, locates nearest ALS/BLS ambulances & trauma beds",
+    gradient: "from-rose-900 to-red-800",
+    activeBg: "linear-gradient(135deg, #991b1b, #b91c1c)",
+    badgeColor: "bg-rose-100 text-rose-900 border-rose-300",
+  },
+  {
+    id: "insurance" as AgentId,
+    name: "8. Ayushman & PMBJP Subsidy",
+    shortName: "Subsidy Advisor",
+    icon: ShieldCheck,
+    badge: "PMJAY Advisor",
+    desc: "Calculates Ayushman Bharat card claims & Jan Aushadhi generic savings up to 85%",
+    gradient: "from-emerald-900 to-teal-800",
+    activeBg: "linear-gradient(135deg, #065f46, #0d9488)",
+    badgeColor: "bg-emerald-100 text-emerald-900 border-emerald-300",
+  },
+  {
+    id: "doctor" as AgentId,
+    name: "9. Telehealth Doctor Match",
+    shortName: "Telehealth Doctor",
+    icon: Video,
+    badge: "Video Slot AI",
+    desc: "Matches symptoms to certified specialist doctors & generates e-prescriptions",
+    gradient: "from-indigo-900 to-purple-800",
+    activeBg: "linear-gradient(135deg, #312e81, #4338ca)",
+    badgeColor: "bg-indigo-100 text-indigo-900 border-indigo-300",
+  },
+  {
+    id: "clinical" as AgentId,
+    name: "10. Rare Drug & Clinical Trial",
+    shortName: "Rare Medicine AI",
+    icon: FlaskConical,
+    badge: "Orphan Drug AI",
+    desc: "Locates orphan medicines, CDSCO Form 12B import permits & clinical trial centers",
+    gradient: "from-purple-950 to-indigo-900",
+    activeBg: "linear-gradient(135deg, #311b92, #512da8)",
+    badgeColor: "bg-purple-100 text-purple-900 border-purple-300",
+  },
 ];
 
 export function AgentHub({ initialAgent = "swarm" }: AgentHubProps) {
@@ -105,26 +179,26 @@ export function AgentHub({ initialAgent = "swarm" }: AgentHubProps) {
         <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/25 backdrop-blur-md text-xs font-black uppercase tracking-widest text-emerald-300 mb-4">
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            MediFinder India — 5 Pharmacy Agentic AI Suite
+            MediFinder India — 10 Specialized Healthcare Agentic AI Suite
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight mb-2">
-            Autonomous Pharmacy Agent Swarm
+            Autonomous 10-Agent AI Medical Platform
           </h2>
 
           <p className="text-sm sm:text-base text-slate-200 leading-relaxed font-semibold max-w-2xl">
-            Deploy 5 specialized pharmacy AI agents working independently or collaboratively via our Multi-Agent Swarm Orchestrator — cinematic deep navy, emerald green &amp; cloud white design.
+            Deploy 10 specialized healthcare & pharmacy AI agents working independently or collaboratively via our Multi-Agent Swarm Orchestrator.
           </p>
 
           <div className="mt-5 flex flex-wrap items-center gap-3 text-xs font-black text-slate-200">
             <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-xl border border-white/15">
-              <Activity className="w-4 h-4 text-emerald-400" /> 5 Active Specialized Agents
+              <Activity className="w-4 h-4 text-emerald-400" /> 10 Active Specialized Agents
             </span>
             <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-xl border border-white/15">
-              <Network className="w-4 h-4 text-sky-400" /> Dynamic Swarm DAG Engine
+              <Network className="w-4 h-4 text-sky-400" /> 10-Agent Swarm DAG Engine
             </span>
             <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-xl border border-white/15">
-              <Sparkles className="w-4 h-4 text-amber-300" /> Cinematic AI Platform
+              <Sparkles className="w-4 h-4 text-amber-300" /> Real-Time Live API Integration
             </span>
           </div>
         </div>
@@ -180,6 +254,11 @@ export function AgentHub({ initialAgent = "swarm" }: AgentHubProps) {
         {selectedAgent === "prescription" && <PrescriptionVerificationAgent />}
         {selectedAgent === "interaction" && <DrugInteractionAgent />}
         {selectedAgent === "fulfillment" && <SmartOrderFulfillmentAgent />}
+        {selectedAgent === "triage" && <SymptomTriageAgent />}
+        {selectedAgent === "ambulance" && <EmergencyAmbulanceAgent />}
+        {selectedAgent === "insurance" && <InsuranceSubsidyAgent />}
+        {selectedAgent === "doctor" && <DoctorConsultationAgent />}
+        {selectedAgent === "clinical" && <ClinicalTrialMedicineAgent />}
       </div>
     </div>
   );

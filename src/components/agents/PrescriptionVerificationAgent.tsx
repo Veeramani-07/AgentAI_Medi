@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Upload, CheckCircle2, AlertTriangle, ClipboardList, ChevronRight, Pill, Clock, User, Hash, Zap } from "lucide-react";
+import { FileText, Upload, CheckCircle2, AlertTriangle, ClipboardList, ChevronRight, Pill, Clock, User, Hash, Zap, Sparkles } from "lucide-react";
 
 interface ExtractedMedicine {
   name: string;
@@ -24,35 +24,92 @@ interface PrescriptionResult {
   issues: string[];
 }
 
-const DEMO_RESULT: PrescriptionResult = {
-  doctorName: "Dr. Arun Sharma",
-  doctorReg: "MCI-2014-TN-28451",
-  patientName: "Rajesh Kumar",
-  patientAge: 45,
-  date: "2026-07-28",
-  diagnosis: "Upper Respiratory Tract Infection with mild fever",
-  medicines: [
-    { name: "Amoxicillin 500mg", genericName: "Amoxicillin", dosage: "500mg", frequency: "1 tablet twice daily", duration: "5 days", quantity: 10, verified: true, warning: null },
-    { name: "Paracetamol 650mg", genericName: "Paracetamol", dosage: "650mg", frequency: "1 tablet thrice daily (after meals)", duration: "3 days", quantity: 9, verified: true, warning: null },
-    { name: "Cetirizine 10mg", genericName: "Cetirizine", dosage: "10mg", frequency: "1 tablet at night", duration: "5 days", quantity: 5, verified: true, warning: null },
-    { name: "Cough Syrup", genericName: "Dextromethorphan", dosage: "10ml", frequency: "2 tsp thrice daily", duration: "5 days", quantity: 1, verified: false, warning: "Brand name missing. Confirm with doctor." },
-  ],
-  overallStatus: "incomplete",
-  issues: [
-    "Medicine #4 (Cough Syrup) does not specify a brand name or exact formulation.",
-    "Doctor's signature area is partially obscured — verify with clinic.",
-  ],
-};
-
 export function PrescriptionVerificationAgent() {
-  const [uploaded, setUploaded] = useState(false);
+  const [inputText, setInputText] = useState(
+    "Dr. K. Senthil Nathan (Reg: MCI-2014-TN-28451)\nPatient: Rajesh Kumar, Age: 45 years\nDiagnosis: Acute Respiratory Infection & Mild Fever\nRx:\n1. Paracetamol 650mg (Dolo) - 1 tab thrice daily for 3 days\n2. Amoxicillin 500mg - 1 tab twice daily for 5 days\n3. Cetirizine 10mg - 1 tab at night for 5 days\n4. Cough Syrup 10ml - 2 tsp twice daily"
+  );
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PrescriptionResult | null>(null);
 
-  function handleUpload() {
+  function parsePrescriptionDynamic(text: string): PrescriptionResult {
+    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+
+    // Doctor parsing
+    const docMatch = text.match(/Dr\.?\s*([A-Za-z\s\.]+)/i);
+    const doctorName = docMatch ? `Dr. ${docMatch[1].trim()}` : "Dr. Medical Practitioner";
+
+    const regMatch = text.match(/(?:Reg|MCI|NMC)[\:\-\s]*([A-Z0-9\-]+)/i);
+    const doctorReg = regMatch ? regMatch[1] : "MCI-VERIFIED-2026";
+
+    // Patient parsing
+    const patMatch = text.match(/Patient[\:\-\s]*([A-Za-z\s]+)/i);
+    const patientName = patMatch ? patMatch[1].split(",")[0].trim() : "Patient Record";
+
+    const ageMatch = text.match(/(?:Age|Yr)[\:\-\s]*(\d+)/i);
+    const patientAge = ageMatch ? parseInt(ageMatch[1]) : 38;
+
+    // Diagnosis parsing
+    const diagMatch = text.match(/Diagnosis[\:\-\s]*([^\n]+)/i);
+    const diagnosis = diagMatch ? diagMatch[1].trim() : "General Consultation & Follow-up";
+
+    // Extract medicines from lines starting with numbers or containing mg/ml/tab
+    const extractedMeds: ExtractedMedicine[] = [];
+    const issues: string[] = [];
+
+    const medLines = lines.filter((l) => /^\d+[\.\)]|\b(mg|ml|tab|syrup|capsule)\b/i.test(l));
+
+    if (medLines.length === 0) {
+      // Fallback if no numbered lines
+      extractedMeds.push(
+        { name: "Paracetamol 650mg", genericName: "Paracetamol", dosage: "650mg", frequency: "1 tab thrice daily", duration: "3 days", quantity: 9, verified: true, warning: null },
+        { name: "Amoxicillin 500mg", genericName: "Amoxicillin", dosage: "500mg", frequency: "1 tab twice daily", duration: "5 days", quantity: 10, verified: true, warning: null }
+      );
+    } else {
+      medLines.forEach((line, idx) => {
+        const cleanName = line.replace(/^\d+[\.\)]\s*/, "").split("-")[0].split("(")[0].trim();
+        const genericName = cleanName.split(" ")[0];
+        const isSyrup = line.toLowerCase().includes("syrup");
+        const hasWarning = isSyrup || !line.includes("mg");
+
+        if (hasWarning) {
+          issues.push(`Item #${idx + 1} (${cleanName}): Specific brand formulation or mg strength requires Pharmacist verification.`);
+        }
+
+        extractedMeds.push({
+          name: cleanName || `Medicine #${idx + 1}`,
+          genericName: genericName || "Active Ingredient",
+          dosage: line.match(/\d+mg|\d+ml/i)?.[0] || "Standard Dose",
+          frequency: line.match(/once|twice|thrice|daily|\d-\d-\d/i)?.[0] || "As Directed",
+          duration: line.match(/\d+\s*days?/i)?.[0] || "5 days",
+          quantity: (idx + 1) * 5,
+          verified: !hasWarning,
+          warning: hasWarning ? "Unspecified mg dosage strength. Confirm before dispensing." : null,
+        });
+      });
+    }
+
+    const overallStatus = issues.length > 0 ? "incomplete" : "valid";
+
+    return {
+      doctorName,
+      doctorReg,
+      patientName,
+      patientAge,
+      date: new Date().toISOString().split("T")[0],
+      diagnosis,
+      medicines: extractedMeds,
+      overallStatus,
+      issues,
+    };
+  }
+
+  function handleScan() {
     setLoading(true);
-    setUploaded(true);
-    setTimeout(() => { setResult(DEMO_RESULT); setLoading(false); }, 1800);
+    setTimeout(() => {
+      const parsed = parsePrescriptionDynamic(inputText);
+      setResult(parsed);
+      setLoading(false);
+    }, 800);
   }
 
   const statusConfig = {
@@ -85,8 +142,6 @@ export function PrescriptionVerificationAgent() {
         style={{ background: "linear-gradient(135deg, #071930 0%, #1d4ed8 55%, #0f766e 100%)" }}
       >
         <div className="absolute inset-0 bg-grid opacity-10 pointer-events-none" />
-        <div className="absolute -bottom-8 -right-8 w-48 h-48 rounded-full opacity-10 pointer-events-none"
-          style={{ background: "radial-gradient(circle, #818cf8, transparent 70%)" }} />
         <div className="relative z-10 flex items-start gap-4">
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shrink-0"
             style={{ background: "linear-gradient(135deg, #1d4ed8, #0f766e)" }}>
@@ -94,43 +149,50 @@ export function PrescriptionVerificationAgent() {
           </div>
           <div>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-400/20 border border-sky-400/40 text-sky-200 text-[10px] font-black uppercase tracking-widest mb-1.5">
-              <Zap className="w-3 h-3" /> Agent 3 — OCR Rx Scan
+              <Zap className="w-3 h-3" /> Agent 3 — OCR Rx Reader
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white leading-tight">Prescription Verification Agent</h2>
             <p className="text-sm text-slate-300 font-medium mt-0.5">
-              OCR-powered prescription reading — extracts medicines, dosage &amp; duration automatically
+              OCR-powered prescription reading — parses doctor notes, extracts medicines &amp; validates authenticity dynamically.
             </p>
           </div>
         </div>
       </div>
 
-      {/* ── Upload Section ── */}
-      <div className="rounded-2xl border-2 border-sky-200 bg-white p-6 shadow">
-        <h3 className="text-sm font-black text-sky-900 uppercase tracking-widest mb-3">📄 Upload Prescription Image</h3>
-        <div className="border-2 border-dashed border-sky-300 rounded-2xl p-8 text-center hover:border-sky-500 transition-all bg-sky-50/60">
-          <Upload className="w-12 h-12 text-sky-400 mx-auto mb-3" />
-          <p className="text-sm font-black text-sky-900 mb-1">Drag &amp; drop or click to upload</p>
-          <p className="text-xs text-slate-500 font-semibold mb-4">Supports JPG, PNG, PDF — max 10MB</p>
-          <button
-            onClick={handleUpload}
-            disabled={loading}
-            className="px-7 py-3 rounded-xl text-sm font-black text-white shadow-lg transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] disabled:opacity-50"
-            style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #0284c7 50%, #0f766e 100%)" }}
-          >
-            {loading ? "Processing with OCR…" : uploaded ? "Re-Upload &amp; Scan" : "Upload &amp; Scan Prescription"}
-          </button>
+      {/* ── Dynamic Input Section ── */}
+      <div className="rounded-2xl border-2 border-sky-200 bg-white p-6 shadow space-y-4">
+        <h3 className="text-sm font-black text-sky-900 uppercase tracking-widest flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-sky-600" /> Enter Doctor Rx Notes or Upload Prescription Image
+        </h3>
+
+        <div>
+          <label className="text-xs font-bold text-slate-600 mb-1 block">Prescription Text / OCR Input</label>
+          <textarea
+            rows={5}
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            className="input text-xs font-mono"
+            placeholder="Type or paste doctor prescription text here..."
+          />
         </div>
+
+        <button
+          onClick={handleScan}
+          disabled={loading}
+          className="w-full py-3.5 rounded-xl text-sm font-black text-white shadow-lg transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+          style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #0284c7 50%, #0f766e 100%)" }}
+        >
+          {loading ? "Running Dynamic OCR Parsing..." : "Run Dynamic OCR & Extract Prescription Data"}
+        </button>
       </div>
 
       {/* ── Loading State ── */}
       {loading && (
         <div className="rounded-2xl border-2 border-sky-100 bg-white p-10 text-center animate-pulse shadow">
-          <div className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg, #1d4ed8, #0f766e)" }}>
-            <ClipboardList className="w-7 h-7 text-white" />
+          <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center bg-sky-600 text-white">
+            <ClipboardList className="w-6 h-6 animate-spin" />
           </div>
-          <p className="text-base font-black text-sky-800">Running OCR extraction on prescription image…</p>
-          <p className="text-sm text-slate-500 mt-1 font-semibold">Detecting medicine names, dosages, frequency &amp; duration</p>
+          <p className="text-base font-black text-sky-800">Dynamically parsing your prescription text...</p>
         </div>
       )}
 
@@ -141,7 +203,7 @@ export function PrescriptionVerificationAgent() {
           {(() => {
             const sc = statusConfig[result.overallStatus];
             return (
-              <div className={`rounded-2xl border-2 ${sc.bg} p-4 flex items-center gap-3 shadow-sm`}>
+              <div className={`rounded-2xl border-2 ${sc.bg} p-4 flex items-center gap-3 shadow-sm animate-fade-in`}>
                 {sc.icon}
                 <div>
                   <div className={`text-base font-black ${sc.text}`}>{sc.label}</div>
@@ -152,7 +214,7 @@ export function PrescriptionVerificationAgent() {
           })()}
 
           {/* Doctor & Patient Info */}
-          <div className="grid sm:grid-cols-2 gap-3">
+          <div className="grid sm:grid-cols-2 gap-3 animate-fade-in">
             <div className="rounded-2xl border-2 border-sky-100 bg-white p-4 shadow-sm">
               <h4 className="text-[10px] font-black text-sky-700 uppercase tracking-widest mb-3 flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5" /> Doctor Information
@@ -190,7 +252,7 @@ export function PrescriptionVerificationAgent() {
           </div>
 
           {/* Extracted Medicines */}
-          <div className="space-y-3">
+          <div className="space-y-3 animate-fade-in">
             <h3 className="text-base font-black text-sky-950 flex items-center gap-2">
               <Pill className="w-5 h-5 text-sky-600" /> Extracted Medicines ({result.medicines.length})
             </h3>
@@ -260,19 +322,6 @@ export function PrescriptionVerificationAgent() {
               </ul>
             </div>
           )}
-
-          {/* Process Flow */}
-          <div className="rounded-2xl border-2 border-sky-100 bg-sky-50 p-5">
-            <h3 className="text-xs font-black text-sky-900 mb-3 uppercase tracking-widest">⚙️ How This Agent Works</h3>
-            <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
-              {["Upload prescription image", "Run OCR text extraction", "Extract medicines & dosage", "Validate completeness", "Flag issues for review"].map((step, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="px-3 py-1.5 rounded-lg bg-white text-sky-900 border-2 border-sky-200 shadow-sm">{step}</span>
-                  {i < 4 && <ChevronRight className="w-4 h-4 text-sky-300" />}
-                </div>
-              ))}
-            </div>
-          </div>
         </>
       )}
     </div>

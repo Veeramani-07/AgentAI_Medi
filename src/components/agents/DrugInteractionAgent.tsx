@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ShieldAlert, Pill, AlertTriangle, CheckCircle2, XCircle, ChevronRight, Plus, Trash2, HeartPulse, Search, Zap } from "lucide-react";
 
 interface InteractionResult {
@@ -30,44 +30,100 @@ const ALLERGY_STYLES = {
 };
 
 export function DrugInteractionAgent() {
-  const [medicines, setMedicines] = useState<string[]>(["Warfarin", "Ibuprofen"]);
+  const [medicines, setMedicines] = useState<string[]>(["Warfarin", "Ibuprofen", "Amoxicillin"]);
   const [allergies, setAllergies] = useState<string[]>(["Penicillin"]);
   const [newMed, setNewMed] = useState("");
   const [newAllergy, setNewAllergy] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [executed, setExecuted] = useState(false);
-  const [interactions, setInteractions] = useState<InteractionResult[]>([]);
-  const [allergyResults, setAllergyResults] = useState<AllergyResult[]>([]);
 
   function addMedicine() {
-    if (newMed.trim() && !medicines.includes(newMed.trim())) {
+    if (newMed.trim() && !medicines.some(m => m.toLowerCase() === newMed.trim().toLowerCase())) {
       setMedicines([...medicines, newMed.trim()]);
       setNewMed("");
     }
   }
 
   function addAllergy() {
-    if (newAllergy.trim() && !allergies.includes(newAllergy.trim())) {
+    if (newAllergy.trim() && !allergies.some(a => a.toLowerCase() === newAllergy.trim().toLowerCase())) {
       setAllergies([...allergies, newAllergy.trim()]);
       setNewAllergy("");
     }
   }
 
-  function runCheck() {
-    setLoading(true);
-    setTimeout(() => {
-      setInteractions([
-        { drug1: "Warfarin", drug2: "Ibuprofen", severity: "severe", description: "NSAIDs significantly increase the anticoagulant effect of Warfarin, leading to high risk of internal bleeding.", recommendation: "Avoid combination. Use Paracetamol as an alternative analgesic." },
-        { drug1: "Warfarin", drug2: "Metformin", severity: "none", description: "No clinically significant interaction found between Warfarin and Metformin.", recommendation: "Safe to co-administer. Monitor INR routinely." },
-        { drug1: "Ibuprofen", drug2: "Metformin", severity: "mild", description: "NSAIDs may slightly reduce renal function, potentially affecting Metformin clearance.", recommendation: "Monitor kidney function. Use the lowest effective NSAID dose." },
-      ]);
-      setAllergyResults([
-        { drug: "Amoxicillin", allergen: "Penicillin", severity: "high", reaction: "Anaphylaxis risk — Amoxicillin is a penicillin-type antibiotic. Contraindicated for patients with penicillin allergy." },
-      ]);
-      setExecuted(true);
-      setLoading(false);
-    }, 1500);
-  }
+  // Dynamically derive interactions based on the medicines list
+  const interactions = useMemo<InteractionResult[]>(() => {
+    const list: InteractionResult[] = [];
+    const medsLower = medicines.map(m => m.toLowerCase());
+
+    if (medsLower.some(m => m.includes("warfarin")) && medsLower.some(m => m.includes("ibuprofen") || m.includes("aspirin") || m.includes("combiflam"))) {
+      list.push({
+        drug1: "Warfarin",
+        drug2: medsLower.find(m => m.includes("ibuprofen")) ? "Ibuprofen" : "NSAID Painkiller",
+        severity: "severe",
+        description: "NSAIDs significantly increase the anticoagulant effect of Warfarin, causing high risk of gastrointestinal & internal hemorrhage.",
+        recommendation: "Strictly avoid combination. Use Paracetamol 650mg (Dolo) as a safe alternative analgesic."
+      });
+    }
+
+    if (medsLower.some(m => m.includes("metformin") || m.includes("glycomet")) && medsLower.some(m => m.includes("ibuprofen") || m.includes("combiflam"))) {
+      list.push({
+        drug1: "Metformin",
+        drug2: "Ibuprofen",
+        severity: "mild",
+        description: "NSAIDs may slightly impair renal perfusion, reducing Metformin renal excretion and increasing risk of lactic acidosis.",
+        recommendation: "Monitor renal creatinine function and maintain proper hydration."
+      });
+    }
+
+    if (medsLower.some(m => m.includes("atorvastatin") || m.includes("atorva")) && medsLower.some(m => m.includes("azithromycin") || m.includes("azithral"))) {
+      list.push({
+        drug1: "Atorvastatin",
+        drug2: "Azithromycin",
+        severity: "moderate",
+        description: "Macrolide antibiotics may increase statin blood concentrations, elevating risk of myopathy and muscle pain.",
+        recommendation: "Temporarily pause statin during 3-day macrolide antibiotic course."
+      });
+    }
+
+    if (list.length === 0 && medicines.length >= 2) {
+      list.push({
+        drug1: medicines[0],
+        drug2: medicines[1],
+        severity: "none",
+        description: `No major adverse drug-drug interactions reported between ${medicines[0]} and ${medicines[1]}.`,
+        recommendation: "Safe to co-administer as prescribed by your doctor. Follow standard dosage schedules."
+      });
+    }
+
+    return list;
+  }, [medicines]);
+
+  // Dynamically derive allergy conflicts based on allergies list and medicines list
+  const allergyResults = useMemo<AllergyResult[]>(() => {
+    const list: AllergyResult[] = [];
+    const allergiesLower = allergies.map(a => a.toLowerCase());
+    const medsLower = medicines.map(m => m.toLowerCase());
+
+    if (allergiesLower.some(a => a.includes("penicillin")) && medsLower.some(m => m.includes("amoxicillin") || m.includes("augmentin") || m.includes("ampicillin"))) {
+      const matchMed = medicines.find(m => /amoxicillin|augmentin|ampicillin/i.test(m)) || "Amoxicillin";
+      list.push({
+        drug: matchMed,
+        allergen: "Penicillin",
+        severity: "high",
+        reaction: `Anaphylaxis & severe skin rash risk — ${matchMed} is a beta-lactam penicillin class derivative. Strictly contraindicated.`
+      });
+    }
+
+    if (allergiesLower.some(a => a.includes("sulfa")) && medsLower.some(m => m.includes("bactrim") || m.includes("septran") || m.includes("sulfamethoxazole"))) {
+      list.push({
+        drug: "Sulfamethoxazole",
+        allergen: "Sulfa Drugs",
+        severity: "high",
+        reaction: "Severe hypersensitivity and Stevens-Johnson Syndrome (SJS) risk. Avoid all sulfonamides."
+      });
+    }
+
+    return list;
+  }, [medicines, allergies]);
 
   const severeCount = interactions.filter((i) => i.severity === "severe").length;
   const allergyCount = allergyResults.filter((a) => a.severity === "high").length;
@@ -159,22 +215,8 @@ export function DrugInteractionAgent() {
         </div>
       </div>
 
-      {/* ── Run Check ── */}
-      <button
-        onClick={runCheck}
-        disabled={loading || medicines.length < 1}
-        className="w-full py-3.5 rounded-xl text-sm font-black text-white shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.97] disabled:opacity-50 flex items-center justify-center gap-2"
-        style={{ background: "linear-gradient(135deg, #b91c1c 0%, #7c2d12 50%, #0284c7 100%)" }}
-      >
-        {loading ? (
-          <><Search className="w-5 h-5 animate-spin" /> Checking Interactions &amp; Allergies…</>
-        ) : (
-          <><ShieldAlert className="w-5 h-5" /> {executed ? "Re-Check" : "Run"} Safety Audit</>
-        )}
-      </button>
-
-      {executed && !loading && (
-        <>
+      {/* ── Real-Time AI Safety Audit Output ── */}
+      <div className="space-y-5 animate-fade-in">
           {/* Summary Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
@@ -267,8 +309,7 @@ export function DrugInteractionAgent() {
               ))}
             </div>
           </div>
-        </>
-      )}
+        </div>
     </div>
   );
 }

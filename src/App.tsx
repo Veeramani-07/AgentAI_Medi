@@ -13,10 +13,12 @@ import { NearbyFinder } from "@/components/NearbyFinder";
 import { AddRequestModal } from "@/components/AddRequestModal";
 import { AddPharmacyModal } from "@/components/AddPharmacyModal";
 import { AddEquipmentModal } from "@/components/AddEquipmentModal";
+import { LocationModal } from "@/components/LocationModal";
 import { AgentHub } from "@/components/agents/AgentHub";
 import { TOP_INDIA_HOSPITALS, TOP_INDIA_EMERGENCY_REQUESTS } from "@/lib/indiaHospitalsData";
 import { supabase } from "@/lib/supabase";
 import type { Pharmacy, EmergencyRequest, PharmacyResult } from "@/lib/types";
+import { reverseGeocode, type GeocodedLocation } from "@/lib/locationService";
 import { MapPin, AlertCircle } from "lucide-react";
 
 type Tab = "home" | "agents" | "nearby" | "assistant" | "medicines" | "equipment" | "requests" | "pharmacies";
@@ -25,8 +27,18 @@ export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [authPage, setAuthPage] = useState<"login" | "register">("login");
   const [tab, setTab] = useState<Tab>("home");
-  const [userLat, setUserLat] = useState<number | null>(null);
-  const [userLng, setUserLng] = useState<number | null>(null);
+  const [userLat, setUserLat] = useState<number | null>(() => {
+    const v = sessionStorage.getItem("userLat");
+    return v ? parseFloat(v) : null;
+  });
+  const [userLng, setUserLng] = useState<number | null>(() => {
+    const v = sessionStorage.getItem("userLng");
+    return v ? parseFloat(v) : null;
+  });
+  const [locationName, setLocationName] = useState<string | null>(() => {
+    return sessionStorage.getItem("userLocationName") || null;
+  });
+
   const [locationError, setLocationError] = useState<string | null>(null);
   const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
   const [requests, setRequests] = useState<EmergencyRequest[]>([]);
@@ -34,72 +46,137 @@ export default function App() {
   const [showAddRequest, setShowAddRequest] = useState(false);
   const [showAddPharmacy, setShowAddPharmacy] = useState(false);
   const [showAddEquipment, setShowAddEquipment] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
 
   const hasLocation = userLat != null && userLng != null;
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => subscription.unsubscribe();
+    let isMounted = true;
+    const timeout = setTimeout(() => {
+      if (isMounted) setSession((prev) => (prev === undefined ? null : prev));
+    }, 1000);
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (isMounted) setSession(data.session ?? null);
+      })
+      .catch((err) => {
+        console.error("Auth initialization error:", err);
+        if (isMounted) setSession(null);
+      });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_e, s) => {
+      if (isMounted) setSession(s);
+    });
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Load pharmacies + requests for the map and home stats
   useEffect(() => {
     (async () => {
-      const [{ data: pharma }, { data: reqs }] = await Promise.all([
-        supabase.from("pharmacies").select("*").order("rating", { ascending: false }),
-        supabase.from("emergency_requests").select("*").order("created_at", { ascending: false }),
-      ]);
+      try {
+        const [{ data: pharma }, { data: reqs }] = await Promise.all([
+          supabase.from("pharmacies").select("*").order("rating", { ascending: false }),
+          supabase.from("emergency_requests").select("*").order("created_at", { ascending: false }),
+        ]);
 
-      const dbPharma = pharma || [];
-      const dbReqs = reqs || [];
+        const dbPharma = pharma || [];
+        const dbReqs = reqs || [];
 
-      // Combine DB items with Top India Hospitals catalog for complete real-time coverage
-      const existingIds = new Set(dbPharma.map((p) => p.id));
-      const mergedPharma: Pharmacy[] = [
-        ...dbPharma,
-        ...TOP_INDIA_HOSPITALS.filter((h) => !existingIds.has(h.id)),
-      ];
+        // Combine DB items with Top India Hospitals catalog for complete real-time coverage
+        const existingIds = new Set(dbPharma.map((p) => p.id));
+        const mergedPharma: Pharmacy[] = [
+          ...dbPharma,
+          ...TOP_INDIA_HOSPITALS.filter((h) => !existingIds.has(h.id)),
+        ];
 
-      const existingReqIds = new Set(dbReqs.map((r) => r.id));
-      const mergedReqs: EmergencyRequest[] = [
-        ...dbReqs,
-        ...TOP_INDIA_EMERGENCY_REQUESTS.filter((r) => !existingReqIds.has(r.id)),
-      ];
+        const existingReqIds = new Set(dbReqs.map((r) => r.id));
+        const mergedReqs: EmergencyRequest[] = [
+          ...dbReqs,
+          ...TOP_INDIA_EMERGENCY_REQUESTS.filter((r) => !existingReqIds.has(r.id)),
+        ];
 
-      setPharmacies(mergedPharma);
-      setRequests(mergedReqs);
+        setPharmacies(mergedPharma);
+        setRequests(mergedReqs);
+      } catch (err) {
+        console.error("Error loading pharmacies/requests:", err);
+        setPharmacies(TOP_INDIA_HOSPITALS);
+        setRequests(TOP_INDIA_EMERGENCY_REQUESTS);
+      }
     })();
   }, []);
 
-  if (session === undefined) return null;
-
-  if (!session) {
-    return authPage === "login"
-      ? <LoginPage onNavigateRegister={() => setAuthPage("register")} />
-      : <RegisterPage onNavigateLogin={() => setAuthPage("login")} />;
+  function handleSetLocation(loc: GeocodedLocation) {
+    setUserLat(loc.lat);
+    setUserLng(loc.lng);
+    setLocationName(loc.displayName);
+    sessionStorage.setItem("userLat", String(loc.lat));
+    sessionStorage.setItem("userLng", String(loc.lng));
+    sessionStorage.setItem("userLocationName", loc.displayName);
   }
 
   function requestLocation() {
     if (!navigator.geolocation) {
       setLocationError("Geolocation isn't supported on this device.");
+      setShowLocationModal(true);
       return;
     }
     setLocationError(null);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserLat(pos.coords.latitude);
-        setUserLng(pos.coords.longitude);
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setUserLat(lat);
+        setUserLng(lng);
+        sessionStorage.setItem("userLat", String(lat));
+        sessionStorage.setItem("userLng", String(lng));
+
+        try {
+          const rev = await reverseGeocode(lat, lng);
+          setLocationName(rev.displayName);
+          sessionStorage.setItem("userLocationName", rev.displayName);
+        } catch {
+          setLocationName(`Location (${lat.toFixed(2)}, ${lng.toFixed(2)})`);
+        }
       },
       (err) => {
-        setLocationError(
-          err.code === err.PERMISSION_DENIED
-            ? "Location permission denied. You can still search by city name."
-            : "Couldn't get your location. Try again or search by city."
-        );
+        console.warn("Location error:", err);
+        setShowLocationModal(true);
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 8000 }
     );
+  }
+
+  // Auto-request location once session is ready and we don't already have it
+  useEffect(() => {
+    if (session && userLat === null && userLng === null) {
+      requestLocation();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
+  if (session === undefined) return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-sky-950 to-slate-900">
+      <div className="flex flex-col items-center gap-4">
+        <img src="/logo3d.png" alt="MediFinder" className="w-16 h-16 animate-pulse" />
+        <div className="w-8 h-8 border-4 border-sky-400/30 border-t-sky-400 rounded-full animate-spin" />
+        <p className="text-sky-300 text-sm font-bold tracking-widest uppercase">Loading MediFinder…</p>
+      </div>
+    </div>
+  );
+
+  if (!session) {
+    return authPage === "login"
+      ? <LoginPage onNavigateRegister={() => setAuthPage("register")} />
+      : <RegisterPage onNavigateLogin={() => setAuthPage("login")} />;
   }
 
   function refreshRequests() {
@@ -128,7 +205,8 @@ export default function App() {
         onTab={(t) => setTab(t as Tab)}
         onAddPharmacy={() => setShowAddPharmacy(true)}
         hasLocation={hasLocation}
-        onUseLocation={requestLocation}
+        locationName={locationName}
+        onOpenLocationModal={() => setShowLocationModal(true)}
         onSignOut={() => supabase.auth.signOut()}
       />
 
@@ -146,7 +224,7 @@ export default function App() {
             requests={requests}
             userLat={userLat}
             userLng={userLng}
-            onUseLocation={requestLocation}
+            onUseLocation={() => setShowLocationModal(true)}
             hasLocation={hasLocation}
             onAskAssistant={() => setTab("assistant")}
             onViewRequests={() => setTab("requests")}
@@ -168,7 +246,7 @@ export default function App() {
             <NearbyFinder
               userLat={userLat}
               userLng={userLng}
-              onUseLocation={requestLocation}
+              onUseLocation={() => setShowLocationModal(true)}
               hasLocation={hasLocation}
               onAddEquipment={() => setShowAddEquipment(true)}
             />
@@ -189,7 +267,7 @@ export default function App() {
                 <AssistantChat
                   userLat={userLat}
                   userLng={userLng}
-                  onUseLocation={requestLocation}
+                  onUseLocation={() => setShowLocationModal(true)}
                   hasLocation={hasLocation}
                   onPharmacyFocus={handlePharmacyFocus}
                 />
@@ -250,6 +328,12 @@ export default function App() {
       <Footer onAddPharmacy={() => setShowAddPharmacy(true)} onAddRequest={() => setShowAddRequest(true)} />
 
       {/* Modals */}
+      <LocationModal
+        open={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        currentLocationName={locationName}
+        onLocationSelect={handleSetLocation}
+      />
       <AddRequestModal open={showAddRequest} onClose={() => setShowAddRequest(false)} onSubmitted={refreshRequests} />
       <AddPharmacyModal open={showAddPharmacy} onClose={() => setShowAddPharmacy(false)} onSubmitted={() => window.location.reload()} />
       <AddEquipmentModal open={showAddEquipment} onClose={() => setShowAddEquipment(false)} onSubmitted={() => setTab("equipment")} />
