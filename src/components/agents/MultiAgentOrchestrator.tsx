@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Network, Play, RefreshCw, CheckCircle2, ArrowRight, Layers, MessageSquareCode, Sparkles, Search, Package, FileText, ShieldAlert, Truck, Stethoscope, Ambulance, ShieldCheck, Video, FlaskConical } from "lucide-react";
+import { Network, Play, RefreshCw, CheckCircle2, ArrowRight, Layers, MessageSquareCode, Sparkles, Search, Package, FileText, ShieldAlert, Truck, Stethoscope, ShieldCheck, Video } from "lucide-react";
 
 export interface AgentMessage {
   fromAgent: string;
@@ -20,7 +20,6 @@ export interface SwarmExecutionResult {
     inventoryStatus: string;
     prescriptionStatus: string;
     drugSafety: string;
-    ambulanceDispatch: string;
     subsidyCalculation: string;
     doctorConsultation: string;
     fulfillmentAction: string;
@@ -29,9 +28,9 @@ export interface SwarmExecutionResult {
 
 const MULTI_AGENT_SCENARIOS = [
   {
-    title: "Scenario A: Critical Emergency (Warfarin + Paracetamol 650mg + ALS Ambulance Route)",
-    description: "10-Agent DAG Swarm orchestrating emergency ambulance dispatch, drug safety audit, PMJAY subsidy calculation & doorstep fulfillment.",
-    prompt: "Patient in Chennai experiencing acute chest pressure. Needs Paracetamol 650mg, Amoxicillin 500mg, ALS Ambulance dispatch, & Ayushman card coverage check.",
+    title: "Scenario A: Critical Emergency (Warfarin + Paracetamol 650mg + PMJAY Coverage)",
+    description: "8-Agent DAG Swarm orchestrating drug safety audit, PMJAY subsidy calculation & doorstep fulfillment.",
+    prompt: "Patient in Chennai experiencing acute chest pressure. Needs Paracetamol 650mg, Amoxicillin 500mg, & Ayushman card coverage check.",
   },
   {
     title: "Scenario B: Low Inventory Alert, Jan Aushadhi Generic Routing & Doctor Teleconsult",
@@ -39,9 +38,9 @@ const MULTI_AGENT_SCENARIOS = [
     prompt: "Insulin Glargine low stock (4 units). Patient requested 5 units + generic alternative + telehealth doctor appointment.",
   },
   {
-    title: "Scenario C: Rare Orphan Drug Import & Clinical Trial Registration",
-    description: "Searches Soliris (Eculizumab 300mg) orphan drug import clearance, CDSCO Form 12B processing, and clinical trial center enrollment.",
-    prompt: "Rare PNH disease patient requesting Eculizumab 300mg import clearance & trial access at AIIMS New Delhi.",
+    title: "Scenario C: Symptom Triage, Prescription Verification & Smart Delivery",
+    description: "Triages patient symptoms, verifies uploaded prescription via OCR, and dispatches smart order to nearest pharmacy.",
+    prompt: "Patient with fever and cough. Uploaded prescription for Azithromycin 500mg. Needs home delivery.",
   },
 ];
 
@@ -52,44 +51,39 @@ const SWARM_AGENTS_DEF = [
   { name: "4. Drug Safety Agent", icon: ShieldAlert, role: "Audits safety" },
   { name: "5. Fulfillment Agent", icon: Truck, role: "Dispatches delivery" },
   { name: "6. Triage Agent", icon: Stethoscope, role: "Clinical guidance" },
-  { name: "7. Ambulance Agent", icon: Ambulance, role: "Emergency ALS dispatch" },
-  { name: "8. Subsidy Agent", icon: ShieldCheck, role: "PMJAY subsidy check" },
-  { name: "9. Doctor Agent", icon: Video, role: "Telehealth scheduling" },
-  { name: "10. Rare Drug Agent", icon: FlaskConical, role: "Orphan import locator" },
+  { name: "7. Subsidy Agent", icon: ShieldCheck, role: "PMJAY subsidy check" },
+  { name: "8. Doctor Agent", icon: Video, role: "Telehealth scheduling" },
 ];
 
 const DEFAULT_SWARM_RESULT: SwarmExecutionResult = {
   scenarioName: MULTI_AGENT_SCENARIOS[0].title,
   consensusScore: 99.1,
-  totalExecutionTimeMs: 2850,
+  totalExecutionTimeMs: 2450,
   agentTaskStatus: [
     { agentName: "Search & Stock Agent", role: "Medicine Search & Location Routing", status: "COMPLETED", durationMs: 250, summary: "Found 4 nearby pharmacies with stock. Lowest price ₹10.50 at Apollo Pharmacy." },
     { agentName: "Inventory Management Agent", role: "Stock Audit & Threshold Monitoring", status: "COMPLETED", durationMs: 240, summary: "Stock level verified (45 units remaining). Stock status: Healthy." },
     { agentName: "Prescription Verification Agent", role: "OCR Parsing & Rx Authenticity Check", status: "COMPLETED", durationMs: 310, summary: "Prescription extracted successfully. Doctor Reg MCI-2014-TN-28451 verified." },
     { agentName: "Drug Safety & Allergy Agent", role: "Interaction Audit & Allergy Filter", status: "COMPLETED", durationMs: 220, summary: "Checked interactions: Warfarin + Paracetamol safe at normal dose. No allergy conflicts." },
     { agentName: "Smart Order & Fulfillment Agent", role: "Order Dispatch & Live Courier Routing", status: "COMPLETED", durationMs: 290, summary: "Assigned rider Dunzo Partner #88421. Est. delivery in 18 mins." },
-    { agentName: "Symptom & Clinical Triage Agent", role: "Clinical Triage & Red-Flag Assessment", status: "COMPLETED", durationMs: 270, summary: "Chest tightness flagged as High Urgency. Triggered ALS Ambulance dispatch." },
-    { agentName: "Emergency Ambulance Agent", role: "ALS Ambulance & ER Trauma Dispatch", status: "COMPLETED", durationMs: 320, summary: "ALS Unit TN 01 AB 8842 assigned. ETA: 8 Mins. Apollo ER Bed #04 Reserved." },
+    { agentName: "Symptom & Clinical Triage Agent", role: "Clinical Triage & Red-Flag Assessment", status: "COMPLETED", durationMs: 270, summary: "Chest tightness flagged as High Urgency. Recommended urgent care visit." },
     { agentName: "Ayushman Subsidy Agent", role: "PMJAY Card & Generic Cost Auditor", status: "COMPLETED", durationMs: 210, summary: "Ayushman Bharat Gold Card verified. 100% Cashless Coverage Authorized." },
     { agentName: "Telehealth Doctor Agent", role: "Specialist Consultation Scheduler", status: "COMPLETED", durationMs: 280, summary: "Dr. K. Senthil Nathan (Cardiologist) reserved for follow-up at 04:30 PM." },
-    { agentName: "Rare Drug & Clinical Trial Agent", role: "Orphan Drug & Import Verification", status: "COMPLETED", durationMs: 260, summary: "Standard formulations available locally. No orphan drug import required." },
   ],
   messages: [
-    { fromAgent: "Swarm Orchestrator", toAgent: "Search & Stock Agent", messageType: "TASK_DELEGATION", content: 'Delegated 10-Agent Swarm Request: "Acute chest pressure, needs Paracetamol 650mg & ALS ambulance."', timestamp: "00:00.100" },
+    { fromAgent: "Swarm Orchestrator", toAgent: "Search & Stock Agent", messageType: "TASK_DELEGATION", content: 'Delegated 8-Agent Swarm Request: "Acute chest pressure, needs Paracetamol 650mg."', timestamp: "00:00.100" },
     { fromAgent: "Search & Stock Agent", toAgent: "Inventory Management Agent", messageType: "INTERACTION_ALERT", content: "Found 4 pharmacies with stock. Requesting stock audit.", timestamp: "00:00.350" },
-    { fromAgent: "Symptom & Clinical Triage Agent", toAgent: "Emergency Ambulance Agent", messageType: "DISPATCH_TRIGGER", content: "CRITICAL SYMPTOM DETECTED: Dispatching ALS Ambulance #AMB-101 immediately.", timestamp: "00:00.900" },
+    { fromAgent: "Symptom & Clinical Triage Agent", toAgent: "Telehealth Doctor Agent", messageType: "DISPATCH_TRIGGER", content: "HIGH URGENCY SYMPTOM: Routing patient to cardiologist teleconsult.", timestamp: "00:00.900" },
     { fromAgent: "Ayushman Subsidy Agent", toAgent: "Smart Order & Fulfillment Agent", messageType: "REPORT_SYNTHESIS", content: "100% PMJAY Cashless Subsidy approved for emergency order.", timestamp: "00:01.800" },
-    { fromAgent: "Smart Order & Fulfillment Agent", toAgent: "Swarm Orchestrator", messageType: "REPORT_SYNTHESIS", content: "Order #MED-2026-88421 + ALS Ambulance #AMB-101 dispatched. Total Latency: 2850ms.", timestamp: "00:02.850" },
+    { fromAgent: "Smart Order & Fulfillment Agent", toAgent: "Swarm Orchestrator", messageType: "REPORT_SYNTHESIS", content: "Order #MED-2026-88421 dispatched. Total Latency: 2450ms.", timestamp: "00:02.450" },
   ],
   synthesizedPlan: {
     medicineSearch: "Paracetamol 650mg found at Apollo Pharmacy (1.8 km away) at ₹12.50/unit.",
     inventoryStatus: "Apollo Pharmacy stock confirmed (45 units). Threshold: Healthy.",
     prescriptionStatus: "Rx verified. Doctor Reg: MCI-2014-TN-28451.",
     drugSafety: "Drug interaction checked: Safe to co-administer. Zero allergen conflicts.",
-    ambulanceDispatch: "ALS Ambulance Unit #AMB-101 Dispatched (ETA: 8 Mins). Apollo ER Bed #04 Reserved.",
     subsidyCalculation: "Ayushman Bharat Gold Card Verified: 100% Cashless Coverage (Patient Copay: ₹0).",
     doctorConsultation: "Dr. K. Senthil Nathan (Cardiology) booked for follow-up.",
-    fulfillmentAction: "Emergency Order dispatched via Dunzo Partner #88421 + ALS Unit. Total Latency: 2.85s.",
+    fulfillmentAction: "Emergency Order dispatched via Dunzo Partner #88421. Total Latency: 2.45s.",
   },
 };
 
@@ -105,7 +99,7 @@ export function MultiAgentOrchestrator() {
 
     const scenario = MULTI_AGENT_SCENARIOS[selectedScenarioIndex];
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 8; i++) {
       setActiveAgentIndex(i);
       await new Promise((res) => setTimeout(res, 250));
     }
@@ -113,7 +107,7 @@ export function MultiAgentOrchestrator() {
     setResult({
       scenarioName: scenario.title,
       consensusScore: 99.4,
-      totalExecutionTimeMs: 2650,
+      totalExecutionTimeMs: 2450,
       agentTaskStatus: DEFAULT_SWARM_RESULT.agentTaskStatus,
       messages: DEFAULT_SWARM_RESULT.messages,
       synthesizedPlan: DEFAULT_SWARM_RESULT.synthesizedPlan,
@@ -135,10 +129,10 @@ export function MultiAgentOrchestrator() {
             </div>
             <div>
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/15 border border-white/20 text-[11px] font-bold uppercase tracking-wider text-emerald-300 mb-1">
-                <Sparkles className="w-3 h-3 text-amber-300" /> 10-Agent Swarm DAG Mesh
+                <Sparkles className="w-3 h-3 text-amber-300" /> 8-Agent Swarm DAG Mesh
               </div>
               <h2 className="text-2xl font-extrabold tracking-tight">Multi-Agent Pharmacy & Healthcare Orchestrator</h2>
-              <p className="text-xs text-slate-300 font-medium mt-0.5">Coordinates all 10 specialized healthcare & pharmacy AI agents in a synchronous DAG execution mesh</p>
+              <p className="text-xs text-slate-300 font-medium mt-0.5">Coordinates all 8 specialized healthcare & pharmacy AI agents in a synchronous DAG execution mesh</p>
             </div>
           </div>
         </div>
@@ -170,9 +164,9 @@ export function MultiAgentOrchestrator() {
           className="btn-primary w-full py-3.5 text-sm font-bold flex items-center justify-center gap-2"
         >
           {isOrchestrating ? (
-            <><RefreshCw className="w-5 h-5 animate-spin" /> Orchestrating 10-Agent Autonomous Mesh...</>
+            <><RefreshCw className="w-5 h-5 animate-spin" /> Orchestrating 8-Agent Autonomous Mesh...</>
           ) : (
-            <><Play className="w-5 h-5 fill-current" /> Launch 10-Agent Swarm Execution Workflow</>
+            <><Play className="w-5 h-5 fill-current" /> Launch 8-Agent Swarm Execution Workflow</>
           )}
         </button>
       </div>
@@ -180,9 +174,9 @@ export function MultiAgentOrchestrator() {
       {/* Agent Mesh Flow Diagram */}
       <div className="card p-6">
         <h3 className="text-sm font-bold text-ink-700 mb-4 flex items-center gap-2">
-          <Layers className="w-4 h-4 text-primary-600" /> Complete 10-Agent DAG Execution Mesh
+          <Layers className="w-4 h-4 text-primary-600" /> Complete 8-Agent DAG Execution Mesh
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {SWARM_AGENTS_DEF.map((ag, idx) => {
             const Icon = ag.icon;
             const isActive = activeAgentIndex === idx;
@@ -224,7 +218,7 @@ export function MultiAgentOrchestrator() {
               <div className="text-xs text-ink-500 font-medium">Total Latency</div>
             </div>
             <div className="card p-4 text-center">
-              <div className="text-2xl font-black text-secondary-700">10</div>
+              <div className="text-2xl font-black text-secondary-700">8</div>
               <div className="text-xs text-ink-500 font-medium">Active Agents Executed</div>
             </div>
             <div className="card p-4 text-center">
@@ -236,15 +230,15 @@ export function MultiAgentOrchestrator() {
           {/* Synthesized Plan */}
           <div className="card p-6 border-2 border-emerald-200 bg-emerald-50/20">
             <h3 className="text-base font-bold text-ink-900 mb-3 flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" /> Synthesized 10-Agent Execution Outcome
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" /> Synthesized 8-Agent Execution Outcome
             </h3>
             <div className="grid sm:grid-cols-2 gap-3 text-xs">
               <div className="p-3 rounded-xl bg-white border border-emerald-100"><span className="font-bold text-emerald-900">Search Result:</span> {result.synthesizedPlan.medicineSearch}</div>
               <div className="p-3 rounded-xl bg-white border border-emerald-100"><span className="font-bold text-emerald-900">Inventory Status:</span> {result.synthesizedPlan.inventoryStatus}</div>
               <div className="p-3 rounded-xl bg-white border border-emerald-100"><span className="font-bold text-emerald-900">Rx Verification:</span> {result.synthesizedPlan.prescriptionStatus}</div>
               <div className="p-3 rounded-xl bg-white border border-emerald-100"><span className="font-bold text-emerald-900">Drug Safety:</span> {result.synthesizedPlan.drugSafety}</div>
-              <div className="p-3 rounded-xl bg-white border border-emerald-100"><span className="font-bold text-emerald-900">Ambulance Dispatch:</span> {result.synthesizedPlan.ambulanceDispatch}</div>
               <div className="p-3 rounded-xl bg-white border border-emerald-100"><span className="font-bold text-emerald-900">PMJAY Subsidy:</span> {result.synthesizedPlan.subsidyCalculation}</div>
+              <div className="p-3 rounded-xl bg-white border border-emerald-100"><span className="font-bold text-emerald-900">Doctor Consult:</span> {result.synthesizedPlan.doctorConsultation}</div>
             </div>
             <div className="mt-3 p-3 rounded-xl bg-primary-800 text-white font-bold text-xs flex items-center justify-between">
               <span>🚀 Final Fulfillment Action: {result.synthesizedPlan.fulfillmentAction}</span>

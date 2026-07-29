@@ -1,4 +1,4 @@
-import { Sparkles, MapPin, Stethoscope, HeartPulse, Building2, Truck, ArrowRight, ShieldCheck, Activity, Search, Package, FileText, ShieldAlert, Ambulance, Video, FlaskConical } from "lucide-react";
+import { Sparkles, MapPin, Stethoscope, HeartPulse, Building2, Truck, ArrowRight, ShieldCheck, Activity, Search, Package, FileText, ShieldAlert, Video } from "lucide-react";
 import { IndiaMap } from "./IndiaMap";
 import type { Pharmacy, EmergencyRequest } from "@/lib/types";
 
@@ -24,10 +24,8 @@ const HERO_AGENTS_SHOWCASE = [
   { id: "interaction", name: "4. Drug Interaction & Safety", icon: ShieldAlert, desc: "Safety audit for drug-drug conflicts, side effects & allergies", color: "from-rose-600 to-red-700" },
   { id: "fulfillment", name: "5. Smart Order & Delivery", icon: Truck, desc: "Instant courier routing, live dispatch & digital invoice billing", color: "from-emerald-600 to-green-700" },
   { id: "triage", name: "6. Symptom & Clinical Triage", icon: Stethoscope, desc: "Matches patient symptoms directly to recommended medicines & hospitals", color: "from-purple-600 to-violet-700" },
-  { id: "ambulance", name: "7. Emergency ALS Ambulance", icon: Ambulance, desc: "Triage severity, route nearest ALS/BLS ambulances & ER beds", color: "from-red-600 to-rose-700" },
-  { id: "insurance", name: "8. Ayushman & PMBJP Subsidy", icon: ShieldCheck, desc: "Calculates PMJAY claims & Jan Aushadhi generic savings up to 85%", color: "from-teal-600 to-emerald-700" },
-  { id: "doctor", name: "9. Telehealth Doctor Consultation", icon: Video, desc: "Matches certified specialist doctors & generates e-prescriptions", color: "from-indigo-600 to-purple-700" },
-  { id: "clinical", name: "10. Rare Drug & Clinical Trial", icon: FlaskConical, desc: "CDSCO Form 12B import clearance & active clinical trial centers", color: "from-purple-700 to-indigo-800" },
+  { id: "insurance", name: "7. Ayushman & PMBJP Subsidy", icon: ShieldCheck, desc: "Calculates PMJAY claims & Jan Aushadhi generic savings up to 85%", color: "from-teal-600 to-emerald-700" },
+  { id: "doctor", name: "8. Telehealth Doctor Consultation", icon: Video, desc: "Matches certified specialist doctors & generates e-prescriptions", color: "from-indigo-600 to-purple-700" },
 ];
 
 export function Hero({
@@ -50,12 +48,12 @@ export function Hero({
             {/* Top Eyebrow Badge */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-widest text-emerald-300 shadow-lg">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <Activity className="w-3.5 h-3.5 text-emerald-300" /> 10 Autonomous AI Agents Mesh · India
+              <Activity className="w-3.5 h-3.5 text-emerald-300" /> 8 Autonomous AI Agents Mesh · India
             </div>
 
             {/* Main Headline */}
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] text-balance">
-              Autonomous 10-Agent AI Medical Platform,{" "}
+              Autonomous 8-Agent AI Medical Platform,{" "}
               <span className="bg-gradient-to-r from-sky-300 via-teal-200 to-emerald-300 bg-clip-text text-transparent drop-shadow-sm">
                 Real-Time &amp; Dynamic.
               </span>
@@ -63,7 +61,7 @@ export function Hero({
 
             {/* Subtitle */}
             <p className="text-base sm:text-lg text-slate-100 leading-relaxed max-w-xl font-semibold">
-              Find medicines, emergency ambulances, Ayushman Bharat subsidies &amp; specialist doctors instantly. Powered by 10 specialized Agentic AIs for urban centers and rural healthcare networks across India.
+              Find medicines, oxygen, ICU beds &amp; specialist doctors instantly. Powered by 8 specialized Agentic AIs for urban centers and rural healthcare networks across India.
             </p>
 
             {/* CTA Action Buttons */}
@@ -78,7 +76,7 @@ export function Hero({
                   }}
                 >
                   <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
-                  Launch 10 Agentic AIs
+                  Launch 8 Agentic AIs
                 </button>
               )}
 
@@ -143,7 +141,7 @@ export function Hero({
               <div className="text-xs font-black uppercase tracking-widest text-emerald-400 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Autonomous AI Suite
               </div>
-              <h2 className="text-2xl sm:text-3xl font-black text-white mt-1">Explore All 10 Agentic AI Systems</h2>
+              <h2 className="text-2xl sm:text-3xl font-black text-white mt-1">Explore All 8 Agentic AI Systems</h2>
             </div>
             {onAgents && (
               <button
@@ -155,7 +153,7 @@ export function Hero({
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             {HERO_AGENTS_SHOWCASE.map((ag) => {
               const Icon = ag.icon;
               return (

@@ -13,7 +13,7 @@ interface HeaderProps {
 
 const TABS = [
   { id: "home",       label: "Home" },
-  { id: "agents",     label: "🤖 10 Agentic AIs" },
+  { id: "agents",     label: "🤖 8 Agentic AIs" },
   { id: "nearby",     label: "Nearby Finder" },
   { id: "assistant",  label: "AI Chat Assistant" },
 ];
